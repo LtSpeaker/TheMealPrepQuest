@@ -1,33 +1,38 @@
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <radialGradient id="glow" cx="30%" cy="20%" r="80%">
+    <radialGradient id="glow" cx="30%" cy="18%" r="85%">
       <stop offset="0%" stop-color="#26332a"/>
       <stop offset="100%" stop-color="#182019"/>
     </radialGradient>
+    <filter id="depthShadow" x="-60%" y="-60%" width="220%" height="220%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#080b08" flood-opacity="0.55"/>
+    </filter>
   </defs>
+
+  <!-- Hintergrund: abgerundet für Favicon/Browser-Anzeige (kein OS-Masking wie bei Homescreen-Icons) -->
   <rect width="512" height="512" rx="112" fill="url(#glow)"/>
 
-  <!-- Teller -->
-  <circle cx="256" cy="270" r="132" fill="none" stroke="#f2ede1" stroke-width="10" opacity="0.9"/>
-  <circle cx="256" cy="270" r="96" fill="none" stroke="#f2ede1" stroke-width="4" opacity="0.35"/>
-
-  <!-- Gabel links -->
-  <g stroke="#e8b23d" stroke-width="14" stroke-linecap="round">
-    <line x1="196" y1="150" x2="196" y2="240"/>
-    <line x1="178" y1="150" x2="178" y2="200"/>
-    <line x1="214" y1="150" x2="214" y2="200"/>
-    <path d="M178 200 Q196 224 214 200" fill="none"/>
-    <line x1="196" y1="224" x2="196" y2="360"/>
+  <!-- Layer 1 (hinten): Q -->
+  <g filter="url(#depthShadow)" transform="translate(364,208) rotate(-7)">
+    <rect x="-90" y="-90" width="180" height="180" rx="30" fill="#e07a52"/>
+    <text x="0" y="7" text-anchor="middle" dominant-baseline="central"
+          font-family="'Arial Black','Helvetica Neue',Arial,sans-serif" font-weight="900"
+          font-size="122" fill="#2a1509" stroke="#2a1509" stroke-width="2.5">Q</text>
   </g>
 
-  <!-- Messer rechts -->
-  <g fill="#e07a52">
-    <path d="M320 150 C336 150 344 172 344 210 C344 236 336 250 322 256 L322 360 L308 360 L308 150 Z"/>
+  <!-- Layer 2 (mitte): P -->
+  <g filter="url(#depthShadow)" transform="translate(258,256) rotate(4)">
+    <rect x="-90" y="-90" width="180" height="180" rx="30" fill="#e8b23d"/>
+    <text x="0" y="7" text-anchor="middle" dominant-baseline="central"
+          font-family="'Arial Black','Helvetica Neue',Arial,sans-serif" font-weight="900"
+          font-size="122" fill="#2a2005" stroke="#2a2005" stroke-width="2.5">P</text>
   </g>
 
-  <!-- Dampf / Bestellticket-Kerbe -->
-  <g fill="none" stroke="#a9b6a8" stroke-width="6" stroke-linecap="round" opacity="0.7">
-    <path d="M226 118 C226 100 246 100 246 82"/>
-    <path d="M266 118 C266 100 286 100 286 82"/>
+  <!-- Layer 3 (vorne): M -->
+  <g filter="url(#depthShadow)" transform="translate(152,304) rotate(-3)">
+    <rect x="-90" y="-90" width="180" height="180" rx="30" fill="#f2ede1"/>
+    <text x="0" y="7" text-anchor="middle" dominant-baseline="central"
+          font-family="'Arial Black','Helvetica Neue',Arial,sans-serif" font-weight="900"
+          font-size="122" fill="#232019" stroke="#232019" stroke-width="2.5">M</text>
   </g>
 </svg>
