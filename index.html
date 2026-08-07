@@ -274,6 +274,10 @@
     padding: 8px 14px; border-radius: 999px; font-size:13px; font-weight:500;
   }
   .toolbar .ghost-btn:hover{ border-color: var(--accent); color: var(--accent); }
+  .ghost-btn:disabled, .btn-primary:disabled{ opacity: 0.35; cursor: not-allowed; }
+  .export-hint{
+    font-size: 11px; color: var(--text-dim); margin: 0 0 12px; line-height: 1.4;
+  }
   .toolbar .filter-chip{
     background: var(--surface); border:1px solid var(--line); color: var(--text-dim);
     padding: 7px 13px; border-radius: 999px; font-family: var(--font-mono); font-size: 11px;
@@ -543,6 +547,9 @@
     <p class="drawer-empty">Noch nichts geplant. Füg über „+“ an einer Rezeptkarte Portionen hinzu.</p>
   </div>
   <div class="drawer-foot">
+    <button class="btn-primary" id="export-ics-btn" style="width:100%; margin-bottom:8px;" disabled>📱 Für Apple Erinnerungen exportieren</button>
+    <p class="export-hint">Öffnet die Datei am iPhone/Mac direkt in Erinnerungen bzw. im Kalender-Import.</p>
+    <button class="ghost-btn" id="copy-list-btn" style="width:100%; text-align:center; margin-bottom:10px;" disabled>Liste kopieren (zum Einfügen)</button>
     <button class="ghost-btn" id="clear-plan-btn" style="width:100%; text-align:center;">Wochenplan leeren</button>
   </div>
 </aside>
@@ -1005,6 +1012,8 @@ const RECIPES = [
   const drawerClose = document.getElementById("drawer-close");
   const scrim = document.getElementById("scrim");
   const clearPlanBtn = document.getElementById("clear-plan-btn");
+  const exportIcsBtn = document.getElementById("export-ics-btn");
+  const copyListBtn = document.getElementById("copy-list-btn");
   const ticketNumber = document.getElementById("ticket-number");
 
   ticketNumber.textContent = String(100 + Math.floor(Math.random() * 800));
@@ -1224,14 +1233,8 @@ const RECIPES = [
     renderDrawer();
   });
 
-  function renderDrawer(){
+  function buildAggregate(){
     const activeRecipeIds = Object.keys(state.plan).filter(id => state.plan[id] > 0);
-    if (activeRecipeIds.length === 0){
-      drawerBody.innerHTML = `<p class="drawer-empty">Noch nichts geplant. Füg über „+“ an einer Rezeptkarte Portionen hinzu.</p>`;
-      return;
-    }
-
-    // Aggregate ingredients across all planned batches
     const aggregate = {}; // key: "name|unit" -> amount
     activeRecipeIds.forEach(id => {
       const recipe = RECIPES.find(r => r.id === id);
@@ -1242,6 +1245,19 @@ const RECIPES = [
         aggregate[key] = (aggregate[key] || 0) + amount;
       });
     });
+    return { activeRecipeIds, aggregate };
+  }
+
+  function renderDrawer(){
+    const { activeRecipeIds, aggregate } = buildAggregate();
+    if (activeRecipeIds.length === 0){
+      drawerBody.innerHTML = `<p class="drawer-empty">Noch nichts geplant. Füg über „+“ an einer Rezeptkarte Portionen hinzu.</p>`;
+      exportIcsBtn.disabled = true;
+      copyListBtn.disabled = true;
+      return;
+    }
+    exportIcsBtn.disabled = false;
+    copyListBtn.disabled = false;
 
     let html = `<h4>Zutaten gesamt</h4>`;
     Object.keys(aggregate).sort().forEach(key => {
@@ -1257,6 +1273,81 @@ const RECIPES = [
 
     drawerBody.innerHTML = html;
   }
+
+  // ---------------- EXPORT: APPLE REMINDERS (.ics) ----------------
+  function icsEscape(text){
+    return String(text).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,");
+  }
+
+  function buildIcsFile(){
+    const { aggregate } = buildAggregate();
+    const now = new Date();
+    const stamp = now.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+    const lines = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//TheMealPrepQuest//Einkaufsliste//DE",
+    ];
+    Object.keys(aggregate).sort().forEach((key, i) => {
+      const [name, unit] = key.split("|");
+      const summary = `${fmtAmount(aggregate[key])} ${unit} ${name}`.trim();
+      lines.push(
+        "BEGIN:VTODO",
+        `UID:mealprepquest-${stamp}-${i}@themealprepquest`,
+        `DTSTAMP:${stamp}`,
+        `SUMMARY:${icsEscape(summary)}`,
+        "STATUS:NEEDS-ACTION",
+        "END:VTODO"
+      );
+    });
+    lines.push("END:VCALENDAR");
+    return lines.join("\r\n");
+  }
+
+  function downloadIcs(){
+    const ics = buildIcsFile();
+    const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "einkaufsliste.ics";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  exportIcsBtn.addEventListener("click", downloadIcs);
+
+  // ---------------- EXPORT: COPY AS PLAIN LIST ----------------
+  function buildPlainList(){
+    const { aggregate } = buildAggregate();
+    return Object.keys(aggregate).sort().map(key => {
+      const [name, unit] = key.split("|");
+      return `${fmtAmount(aggregate[key])} ${unit} ${name}`.trim();
+    }).join("\n");
+  }
+
+  copyListBtn.addEventListener("click", async () => {
+    const text = buildPlainList();
+    const originalLabel = copyListBtn.textContent;
+    try {
+      await navigator.clipboard.writeText(text);
+      copyListBtn.textContent = "Kopiert ✓";
+    } catch (e) {
+      // Fallback for browsers/contexts without Clipboard API
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); copyListBtn.textContent = "Kopiert ✓"; }
+      catch (e2) { copyListBtn.textContent = "Fehlgeschlagen"; }
+      document.body.removeChild(ta);
+    }
+    setTimeout(() => { copyListBtn.textContent = originalLabel; }, 1800);
+  });
 
   updateSummary();
 })();
