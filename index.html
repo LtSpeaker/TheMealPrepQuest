@@ -1331,8 +1331,21 @@ const RECIPES = [
     return lines.join("\r\n");
   }
 
+  function isSafari(){
+    const ua = navigator.userAgent;
+    return /^((?!chrome|crios|fxios|android).)*safari/i.test(ua);
+  }
+
   function downloadIcs(){
     const ics = buildIcsFile();
+    if (isSafari()) {
+      // Safari (iOS & macOS) kann Blob-Downloads mit .ics oft nicht öffnen
+      // ("Safari kann die Datei nicht laden"). Stattdessen direkt zur
+      // data-URI navigieren – so erkennt Safari text/calendar selbst und
+      // bietet den nativen Import in Erinnerungen/Kalender an.
+      window.location.href = "data:text/calendar;charset=utf-8," + encodeURIComponent(ics);
+      return;
+    }
     const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
