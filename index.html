@@ -1253,9 +1253,12 @@ const RECIPES = [
     days: 5,
     persons: 2,
     tags: new Set(),
-    pool: [],       // currently filtered recipe list (order = display order)
+    allMatches: [],  // alle Rezepte, die zu den aktuellen Filtern passen
+    pool: [],        // aktuell angezeigte, zufällige Auswahl daraus
     plan: {},       // recipeId -> batch count
   };
+
+  const MAX_RESULTS = 6; // wie viele Rezepte gleichzeitig angezeigt werden
 
   const TAG_LABELS = {
     lowcarb: "Low Carb",
@@ -1400,7 +1403,7 @@ const RECIPES = [
   });
 
   shuffleBtn.addEventListener("click", () => {
-    state.pool = shuffleArray(state.pool);
+    state.pool = shuffleArray(state.allMatches).slice(0, MAX_RESULTS);
     renderRecipeCards();
   });
 
@@ -1410,7 +1413,8 @@ const RECIPES = [
     if (state.tags.size > 0){
       matches = matches.filter(r => [...state.tags].every(t => r.tags.includes(t)));
     }
-    state.pool = shuffleArray(matches);
+    state.allMatches = matches;
+    state.pool = shuffleArray(matches).slice(0, MAX_RESULTS);
   }
 
   // ---------------- RESULTS RENDERING ----------------
