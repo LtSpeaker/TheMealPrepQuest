@@ -442,6 +442,54 @@
   }
   .scrim.open{ opacity:1; pointer-events:auto; }
 
+  /* ---------- KOCHLISTE (persistente Zubereitungsliste) ---------- */
+  .cooklist-toggle{
+    position: fixed; right: 22px; bottom: 84px;
+    background: var(--surface); color: var(--text);
+    border: 1px solid var(--line); border-radius: 999px; padding: 12px 18px;
+    font-weight: 700; font-size: 14px;
+    box-shadow: 0 12px 30px -10px rgba(var(--shadow-rgb),0.5);
+    display:flex; align-items:center; gap:8px;
+    z-index: 40;
+  }
+  .cooklist-toggle .badge{
+    background: var(--coral); color: #2a1509;
+    font-family: var(--font-mono); font-size: 11px;
+    border-radius: 999px; padding: 2px 7px;
+  }
+  .cooklist-item{
+    background: var(--card); color: var(--ink);
+    border-radius: 2px; padding: 22px 24px;
+    box-shadow: 0 14px 30px -18px rgba(var(--shadow-rgb),0.5);
+    margin-bottom: 18px;
+  }
+  .cooklist-item-head{
+    display:flex; justify-content: space-between; align-items: baseline;
+    gap: 12px; border-bottom: 1px dashed var(--ink-dim);
+    padding-bottom: 12px; margin-bottom: 14px; flex-wrap: wrap;
+  }
+  .cooklist-item-head h3{ font-family: var(--font-display); font-size: 19px; margin:0; }
+  .cooklist-batches{ font-family: var(--font-mono); font-size: 12px; color: var(--ink-dim); white-space:nowrap; }
+  .cooklist-cols{ display:flex; flex-direction:column; gap: 18px; }
+  @media (min-width: 640px){
+    .cooklist-cols{ flex-direction: row; }
+    .cooklist-cols > div:first-child{ flex: 0 0 36%; }
+    .cooklist-cols > div:last-child{ flex: 1; }
+  }
+  .cooklist-cols h4{
+    font-family: var(--font-mono); font-size: 11px; text-transform:uppercase;
+    letter-spacing:0.06em; color: var(--ink-dim); margin: 0 0 8px;
+  }
+  .cooklist-cols ul{ margin:0; padding-left: 18px; font-size: 14px; }
+  .cooklist-cols ul li{ margin-bottom: 3px; }
+  .cooklist-steps{ list-style:none; margin:0; padding:0; }
+  .cooklist-step{
+    display:flex; align-items:flex-start; gap: 10px; margin-bottom: 10px;
+    font-size: 14px; cursor:pointer;
+  }
+  .cooklist-step input{ margin-top: 3px; accent-color: var(--coral); flex-shrink:0; }
+  .cooklist-step input:checked + span{ text-decoration: line-through; opacity: 0.5; }
+
   .back-link{
     background:none; border:none; color: var(--text-dim);
     font-family: var(--font-mono); font-size: 12px;
@@ -559,8 +607,22 @@
     </div>
   </section>
 
+  <section id="view-cooklist" class="view">
+    <button class="back-link" id="cooklist-back-btn">← Zurück</button>
+    <div class="results-head">
+      <div>
+        <h2>Deine Kochliste</h2>
+        <p class="export-hint" style="margin:6px 0 0;">Bleibt gespeichert, bis du „Wochenplan leeren" antippst – auch nach dem Einkaufen, bis du tatsächlich kochst.</p>
+      </div>
+    </div>
+    <div id="cooklist-body"></div>
+  </section>
+
 </div>
 
+<button class="cooklist-toggle" id="cooklist-toggle" style="display:none;">
+  🍳 Kochliste <span class="badge" id="cooklist-badge">0</span>
+</button>
 <button class="drawer-toggle" id="drawer-toggle">
   🛒 Einkaufsliste <span class="badge" id="drawer-badge">0</span>
 </button>
@@ -1260,6 +1322,37 @@ const RECIPES = [
 
   const MAX_RESULTS = 6; // wie viele Rezepte gleichzeitig angezeigt werden
 
+  // ---------------- PERSISTENZ (geplante Gerichte überleben Reload/Neustart) ----------------
+  const STORAGE_KEY = "mealprepquest:plan";
+
+  function savePlanToStorage(){
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ plan: state.plan, persons: state.persons }));
+    } catch (e) {
+      // z.B. privater Browser-Modus ohne localStorage-Zugriff – dann bleibt es bei In-Memory
+    }
+  }
+
+  function loadPlanFromStorage(){
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (data && typeof data.plan === "object" && data.plan !== null){
+        const cleaned = {};
+        Object.keys(data.plan).forEach(id => {
+          if (RECIPES.some(r => r.id === id) && data.plan[id] > 0) cleaned[id] = data.plan[id];
+        });
+        state.plan = cleaned;
+      }
+      if (typeof data.persons === "number" && data.persons >= 1 && data.persons <= 8){
+        state.persons = data.persons;
+      }
+    } catch (e) {
+      // korrupte/fremde Daten im localStorage einfach ignorieren
+    }
+  }
+
   const TAG_LABELS = {
     lowcarb: "Low Carb",
     protein: "High Protein",
@@ -1284,6 +1377,11 @@ const RECIPES = [
   const summaryLine = document.getElementById("summary-line");
   const viewForm = document.getElementById("view-form");
   const viewResults = document.getElementById("view-results");
+  const viewCooklist = document.getElementById("view-cooklist");
+  const cooklistBody = document.getElementById("cooklist-body");
+  const cooklistBackBtn = document.getElementById("cooklist-back-btn");
+  const cooklistToggle = document.getElementById("cooklist-toggle");
+  const cooklistBadge = document.getElementById("cooklist-badge");
   const backBtn = document.getElementById("back-btn");
   const shuffleBtn = document.getElementById("shuffle-btn");
   const recipeGrid = document.getElementById("recipe-grid");
@@ -1385,22 +1483,35 @@ const RECIPES = [
       state[target] = val;
       valEl.textContent = val;
       updateSummary();
+      if (target === "persons") savePlanToStorage();
     });
   });
+
+  // ---------------- VIEW SWITCHING ----------------
+  const VIEWS = { form: viewForm, results: viewResults, cooklist: viewCooklist };
+  let lastMainView = "form"; // wohin der Kochlisten-Zurück-Button führt
+
+  function showView(name){
+    Object.values(VIEWS).forEach(v => v.classList.remove("active"));
+    VIEWS[name].classList.add("active");
+    if (name === "form" || name === "results") lastMainView = name;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   submitBtn.addEventListener("click", () => {
     buildPool();
     renderResults();
-    viewForm.classList.remove("active");
-    viewResults.classList.add("active");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    showView("results");
   });
 
-  backBtn.addEventListener("click", () => {
-    viewResults.classList.remove("active");
-    viewForm.classList.add("active");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  backBtn.addEventListener("click", () => showView("form"));
+
+  cooklistToggle.addEventListener("click", () => {
+    renderCooklist();
+    showView("cooklist");
   });
+
+  cooklistBackBtn.addEventListener("click", () => showView(lastMainView));
 
   shuffleBtn.addEventListener("click", () => {
     state.pool = shuffleArray(state.allMatches).slice(0, MAX_RESULTS);
@@ -1506,6 +1617,58 @@ const RECIPES = [
     const pct = needed > 0 ? Math.min(100, (collected / needed) * 100) : 0;
     portionsFillEl.style.width = pct + "%";
     drawerBadge.textContent = collected;
+    savePlanToStorage();
+    updateCooklistToggle();
+  }
+
+  function updateCooklistToggle(){
+    const plannedDishes = Object.values(state.plan).filter(n => n > 0).length;
+    cooklistBadge.textContent = plannedDishes;
+    cooklistToggle.style.display = plannedDishes > 0 ? "flex" : "none";
+  }
+
+  function renderCooklist(){
+    const activeIds = Object.keys(state.plan).filter(id => state.plan[id] > 0);
+    if (activeIds.length === 0){
+      cooklistBody.innerHTML = `
+        <div class="empty-state">
+          <h3>Noch nichts geplant</h3>
+          <p>Füg über „+" an einer Rezeptkarte Portionen hinzu, dann erscheinen deine Gerichte hier mit Zutaten & Zubereitung.</p>
+        </div>`;
+      return;
+    }
+    cooklistBody.innerHTML = activeIds.map(id => {
+      const recipe = RECIPES.find(r => r.id === id);
+      const batches = state.plan[id];
+      const ingredientsHtml = recipe.ingredients.map(ing => {
+        const scaled = ing.amount * state.persons;
+        return `<li>${fmtAmount(scaled)} ${ing.unit} ${ing.name}</li>`;
+      }).join("");
+      const stepsHtml = recipe.steps.map((s, i) => `
+        <li>
+          <label class="cooklist-step">
+            <input type="checkbox">
+            <span>${i + 1}. ${s}</span>
+          </label>
+        </li>`).join("");
+      return `
+        <article class="cooklist-item">
+          <div class="cooklist-item-head">
+            <h3>${recipe.title}</h3>
+            <span class="cooklist-batches">${batches}× zubereiten · ${recipe.time} Min · ${state.persons} ${state.persons === 1 ? "Portion" : "Portionen"} pro Mal</span>
+          </div>
+          <div class="cooklist-cols">
+            <div>
+              <h4>Zutaten</h4>
+              <ul>${ingredientsHtml}</ul>
+            </div>
+            <div>
+              <h4>Zubereitung</h4>
+              <ol class="cooklist-steps">${stepsHtml}</ol>
+            </div>
+          </div>
+        </article>`;
+    }).join("");
   }
 
   // ---------------- SHOPPING DRAWER ----------------
@@ -1650,6 +1813,9 @@ const RECIPES = [
     setTimeout(() => { copyListBtn.textContent = originalLabel; }, 1800);
   });
 
+  loadPlanFromStorage();
+  document.getElementById("persons-val").textContent = state.persons;
+  updatePortionsTrack();
   updateSummary();
 })();
 
