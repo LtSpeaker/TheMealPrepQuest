@@ -6,10 +6,23 @@
 <title>TheMealPrepQuest</title>
 <meta name="description" content="Finde Rezept-Inspiration für dein Meal Prep – nach Kategorie, Zeit, Tagen und Personenzahl.">
 
+<!-- Theme so früh wie möglich setzen, damit es beim Laden nicht kurz aufblitzt -->
+<script>
+(function(){
+  try {
+    var raw = localStorage.getItem('mpq_state_v1');
+    var theme = raw ? JSON.parse(raw).theme : null;
+    if (theme !== 'light' && theme !== 'dark') {
+      theme = (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+    }
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+})();
+</script>
+
 <!-- PWA / Homescreen -->
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#182019" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#f2ecdd" media="(prefers-color-scheme: light)">
+<meta name="theme-color" id="theme-color-meta" content="#F7F5EF">
 <link rel="icon" type="image/svg+xml" href="icon.svg">
 
 <!-- iOS Homescreen-Verhalten -->
@@ -17,1808 +30,743 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="TheMealPrepQuest">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
 <style>
   :root{
-    --bg: #182019;
-    --bg-2: #131a14;
-    --surface: #212c22;
-    --surface-2: #2a3a2b;
-    --card: #f2ede1;
-    --card-shadow: #0c110c;
-    --line: #3d4d3e;
-    --text: #f2ede1;
-    --text-dim: #a9b6a8;
-    --ink: #232019;
-    --ink-dim: #6b6357;
-    --accent: #e8b23d;
-    --accent-rgb: 232,178,61;
-    --accent-ink: #2a2005;
-    --coral: #e07a52;
-    --coral-soft: #f0d4c4;
-    --green-tag: #5c7a52;
-    --shadow-rgb: 0,0,0;
-    --radius: 3px;
-    --font-display: 'Fraunces', serif;
-    --font-body: 'Work Sans', sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
+    --bg:#F7F5EF; --bg-elevated:#FFFFFF; --surface-muted:#ECE7DB;
+    --text:#1C2430; --text-secondary:rgba(28,36,48,.62); --text-tertiary:rgba(28,36,48,.38);
+    --border:rgba(28,36,48,.13); --accent:#1565C0; --accent-soft:rgba(21,101,192,.10); --accent-contrast:#FFFFFF;
+    --font-display:'Fredoka',sans-serif; --font-body:'Plus Jakarta Sans',sans-serif;
   }
-
-  /* Light Mode: greift automatisch, wenn das System hell eingestellt ist */
-  @media (prefers-color-scheme: light){
-    :root{
-      --bg: #f2ecdd;
-      --bg-2: #e8dfc9;
-      --surface: #ffffff;
-      --surface-2: #eee6d2;
-      --card: #fffdf9;
-      --card-shadow: #d3c7a8;
-      --line: #d8cdae;
-      --text: #2a2115;
-      --text-dim: #7a6f56;
-      --ink: #232019;
-      --ink-dim: #6b6357;
-      --accent: #a8690f;
-      --accent-rgb: 168,105,15;
-      --accent-ink: #fff6e6;
-      --coral: #c85a30;
-      --coral-soft: #f0d4c4;
-      --green-tag: #4a6b42;
-      --shadow-rgb: 60,50,30;
-    }
+  :root[data-theme="dark"]{
+    --bg:#10131A; --bg-elevated:#181D26; --surface-muted:#232A35;
+    --text:#F2F4F7; --text-secondary:rgba(242,244,247,.64); --text-tertiary:rgba(242,244,247,.38);
+    --border:rgba(242,244,247,.13); --accent:#5B9DF9; --accent-soft:rgba(91,157,249,.16); --accent-contrast:#0B1220;
   }
 
   * { box-sizing: border-box; }
   html, body { margin:0; padding:0; }
   body{
     background: var(--bg);
-    background-image:
-      radial-gradient(circle at 15% 8%, rgba(232,178,61,0.05), transparent 40%),
-      radial-gradient(circle at 85% 92%, rgba(224,122,82,0.05), transparent 40%);
     color: var(--text);
     font-family: var(--font-body);
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
+    transition: background .25s ease, color .25s ease;
+  }
+  button{ font-family: inherit; cursor: pointer; border: 0; background: none; color: inherit; }
+  button:disabled{ cursor: not-allowed; }
+  :focus-visible{ outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration: .01ms !important; transition-duration: .01ms !important; }
   }
 
-  button { font-family: inherit; cursor: pointer; }
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-  @media (prefers-reduced-motion: reduce) {
-    * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
-  }
-
-  .app { max-width: 980px; margin: 0 auto; padding: 28px 20px 80px; }
+  .app{ max-width: 1100px; margin: 0 auto; padding: 28px 20px 80px; }
 
   /* ---------- HEADER ---------- */
-  .masthead{
-    display:flex;
-    align-items:baseline;
-    justify-content:space-between;
-    padding-bottom: 18px;
-    border-bottom: 1px solid var(--line);
-    margin-bottom: 32px;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  .masthead .brand{
-    font-family: var(--font-display);
-    font-weight: 600;
-    font-size: 22px;
-    letter-spacing: 0.01em;
-  }
+  .masthead{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+  .masthead .brand{ font-family: var(--font-display); font-weight:700; font-size:24px; letter-spacing:-0.01em; }
   .masthead .brand span{ color: var(--accent); }
-  .masthead .tag-line{
-    font-family: var(--font-mono);
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-dim);
-  }
-
-  /* ---------- VIEWS ---------- */
-  .view { display: none; }
-  .view.active { display: block; animation: fadeUp .5s ease both; }
-  @keyframes fadeUp { from{opacity:0; transform: translateY(8px);} to{opacity:1; transform: translateY(0);} }
-
-  /* ================= QUESTIONNAIRE (order-ticket look) ================= */
-  .ticket{
-    background: var(--card);
-    color: var(--ink);
-    border-radius: 2px;
-    position: relative;
-    padding: 36px 34px 30px;
-    box-shadow: 0 24px 50px -20px rgba(var(--shadow-rgb),0.6), 0 2px 0 var(--card-shadow);
-  }
-  .ticket::before{
-    /* perforated top edge */
-    content:"";
-    position:absolute;
-    top:-6px; left:0; right:0; height:12px;
-    background-image: radial-gradient(circle, var(--bg) 3.2px, transparent 3.3px);
-    background-size: 20px 12px;
-    background-position: 10px 0;
-  }
-  .ticket-head{
-    display:flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    border-bottom: 1px dashed var(--ink-dim);
-    padding-bottom: 16px;
-    margin-bottom: 24px;
-  }
-  .ticket-head h1{
-    font-family: var(--font-display);
-    font-size: clamp(28px, 4vw, 38px);
-    font-weight: 600;
-    margin: 0 0 6px;
-    line-height: 1.05;
-  }
-  .ticket-head p{
-    margin:0;
-    color: var(--ink-dim);
-    font-size: 14px;
-    max-width: 40ch;
-  }
-  .ticket-no{
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--ink-dim);
-    text-align: right;
-    white-space: nowrap;
-  }
-
-  .field { margin-bottom: 26px; }
-  .field-label{
-    display:flex;
-    align-items:baseline;
-    gap: 8px;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--ink-dim);
-    margin-bottom: 10px;
-  }
-  .field-label .num{ color: var(--coral); }
-
-  .choice-row{ display:flex; flex-wrap: wrap; gap: 10px; }
-  .choice{
-    border: 1.5px solid var(--ink-dim);
-    background: transparent;
-    color: var(--ink);
-    padding: 10px 16px;
-    border-radius: 999px;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all .15s ease;
-  }
-  .choice:hover{ border-color: var(--ink); }
-  .choice.selected{
-    background: var(--ink);
-    border-color: var(--ink);
-    color: var(--card);
-  }
-  .choice.selected.diet-fleisch{ background:#8a3b2e; border-color:#8a3b2e; }
-  .choice.selected.diet-fisch{ background:#2f6a7a; border-color:#2f6a7a; }
-  .choice.selected.diet-vegetarisch{ background:#5c7a3a; border-color:#5c7a3a; }
-  .choice.selected.diet-vegan{ background:#3f7a52; border-color:#3f7a52; }
-
-  .chip{
-    border: 1.5px solid var(--ink-dim);
-    background: transparent;
-    color: var(--ink);
-    padding: 8px 14px;
-    border-radius: 6px;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    font-weight: 500;
-  }
-  .chip.selected{ background: var(--coral); border-color: var(--coral); color: #2a1509; }
-
-  .stepper-row{ display:flex; align-items:center; gap: 14px; }
-  .stepper{
-    display:flex; align-items:center;
-    border: 1.5px solid var(--ink-dim);
-    border-radius: 8px;
-    overflow: hidden;
-  }
-  .stepper button{
-    background: transparent; border:none; color: var(--ink);
-    width: 38px; height: 38px; font-size: 18px; font-weight: 600;
-  }
-  .stepper button:hover{ background: rgba(0,0,0,0.06); }
-  .stepper .val{
-    min-width: 46px; text-align:center;
-    font-family: var(--font-mono); font-size: 16px; font-weight: 600;
-  }
-  .stepper-hint{ font-size: 13px; color: var(--ink-dim); }
-
-  .time-row{ display:flex; flex-wrap:wrap; gap:10px; }
-
-  .submit-row{
-    display:flex; align-items:center; justify-content: space-between;
-    border-top: 1px dashed var(--ink-dim);
-    padding-top: 22px;
-    margin-top: 6px;
-    flex-wrap: wrap;
-    gap: 14px;
-  }
-  .summary-line{
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--ink-dim);
-  }
-  .summary-line b{ color: var(--ink); }
-
-  .btn-primary{
-    background: var(--accent);
-    color: var(--accent-ink);
-    border: none;
-    padding: 14px 26px;
-    border-radius: 999px;
-    font-weight: 700;
-    font-size: 15px;
-    letter-spacing: 0.01em;
-    box-shadow: 0 8px 20px -8px rgba(var(--accent-rgb),0.6);
-    transition: transform .15s ease;
-  }
-  .btn-primary:hover{ transform: translateY(-1px); }
-  .btn-primary:disabled{ opacity: 0.4; cursor: not-allowed; transform:none; box-shadow:none; }
-
-  /* ================= RESULTS ================= */
-  .results-head{
-    display:flex; justify-content: space-between; align-items:flex-end;
-    flex-wrap: wrap; gap: 16px; margin-bottom: 22px;
-  }
-  .results-head h2{
-    font-family: var(--font-display);
-    font-size: clamp(24px,3.4vw,30px);
-    font-weight: 600; margin: 0 0 6px;
-  }
-  .portions-track{
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--text-dim);
-  }
-  .portions-track b{ color: var(--accent); }
-  .portions-bar{
-    width: 220px; height: 6px; border-radius: 3px;
-    background: var(--surface-2); overflow:hidden; margin-top:6px;
-  }
-  .portions-bar-fill{
-    height: 100%; background: var(--accent); width:0%;
-    transition: width .4s ease;
-  }
-
-  .toolbar{
-    display:flex; gap:10px; flex-wrap:wrap; margin-bottom: 20px;
-    align-items:center;
-  }
-  .toolbar .ghost-btn{
-    background: transparent; border:1px solid var(--line); color: var(--text);
-    padding: 8px 14px; border-radius: 999px; font-size:13px; font-weight:500;
-  }
-  .toolbar .ghost-btn:hover{ border-color: var(--accent); color: var(--accent); }
-  .ghost-btn:disabled, .btn-primary:disabled{ opacity: 0.35; cursor: not-allowed; }
-  .export-hint{
-    font-size: 11px; color: var(--text-dim); margin: 0 0 12px; line-height: 1.4;
-  }
-  .toolbar .filter-chip{
-    background: var(--surface); border:1px solid var(--line); color: var(--text-dim);
-    padding: 7px 13px; border-radius: 999px; font-family: var(--font-mono); font-size: 11px;
-  }
-  .toolbar .filter-chip.selected{ border-color: var(--coral); color: var(--coral); }
-
-  .recipe-grid{
-    display:grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 20px;
-  }
-
-  .recipe-card{
-    background: var(--card);
-    color: var(--ink);
-    border-radius: 2px;
-    padding: 20px 20px 18px;
-    position: relative;
-    box-shadow: 0 14px 30px -16px rgba(var(--shadow-rgb),0.55);
-    display:flex; flex-direction:column;
-    transition: transform .18s ease, box-shadow .18s ease;
-  }
-  .recipe-card::before{
-    content:"";
-    position:absolute; top:-5px; left:0; right:0; height:10px;
-    background-image: radial-gradient(circle, var(--bg) 2.8px, transparent 2.9px);
-    background-size: 16px 10px;
-  }
-  .recipe-card:hover{ transform: translateY(-3px); box-shadow: 0 20px 36px -16px rgba(var(--shadow-rgb),0.65); }
-
-  .recipe-cat{
-    font-family: var(--font-mono);
-    font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
-    color: var(--ink-dim); margin-bottom: 8px;
-  }
-  .recipe-title{
-    font-family: var(--font-display);
-    font-size: 20px; font-weight: 600; line-height: 1.15; margin: 0 0 10px;
-  }
-  .recipe-meta{
-    display:flex; gap: 12px; font-size: 12px; color: var(--ink-dim);
-    margin-bottom: 12px; flex-wrap: wrap;
-  }
-  .recipe-tags{ display:flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
-  .tag-badge{
-    font-family: var(--font-mono); font-size: 10px; font-weight: 600;
-    padding: 4px 8px; border-radius: 4px; letter-spacing: 0.03em;
-    background: var(--coral-soft); color: #7a3a1f;
-  }
-  .tag-badge.protein{ background:#dfe6cf; color:#3f5227; }
-  .tag-badge.lowcarb{ background:#d8e6e8; color:#1f5661; }
-  .tag-badge.speed{ background:#f0e2c4; color:#7a5a12; }
-
-  .recipe-ingredients{
-    font-size: 13px; color: var(--ink); line-height: 1.55;
-    margin-bottom: 14px; flex: 1;
-  }
-  .recipe-ingredients summary{
-    cursor:pointer; font-weight:600; font-size:13px; color: var(--ink);
-    margin-bottom: 6px;
-  }
-  .recipe-ingredients ul{ margin: 8px 0 0; padding-left: 18px; }
-  .recipe-ingredients li{ margin-bottom: 2px; }
-  .recipe-steps{ font-size: 13px; color: var(--ink-dim); margin: 8px 0 0; padding-left: 18px; }
-  .recipe-steps li{ margin-bottom: 4px; }
-
-  .recipe-foot{
-    display:flex; align-items:center; justify-content: space-between;
-    border-top: 1px dashed var(--ink-dim); padding-top: 12px; margin-top: 4px;
-  }
-  .freezer-note{ font-size: 11px; color: var(--ink-dim); display:flex; align-items:center; gap:5px; }
-  .add-batch{
-    display:flex; align-items:center; gap: 8px;
-    background: var(--ink); color: var(--card);
-    border-radius: 999px; padding: 6px 6px 6px 14px;
-    font-size: 12px; font-weight: 600;
-  }
-  .add-batch button{
-    background: var(--accent); color: var(--accent-ink); border:none;
-    width: 24px; height: 24px; border-radius: 50%; font-weight: 700; font-size: 14px;
+  .masthead .tagline{ font-size:13px; color: var(--text-secondary); margin-top:2px; }
+  .theme-toggle{
+    width:38px; height:38px; border-radius:999px; border:1px solid var(--border);
+    background: var(--bg-elevated); color: var(--text);
     display:flex; align-items:center; justify-content:center;
   }
-  .add-batch .count{ min-width: 14px; text-align:center; font-family: var(--font-mono); }
 
-  .empty-state{
-    text-align:center; padding: 60px 20px; color: var(--text-dim);
+  .nav-row{ display:flex; align-items:center; gap:10px; margin-bottom:26px; flex-wrap:wrap; }
+  .round-badge{
+    font-family: var(--font-display); font-weight:600; font-size:12px; color: var(--accent);
+    background: var(--accent-soft); border-radius:999px; padding:7px 14px;
   }
-  .empty-state h3{ font-family: var(--font-display); color: var(--text); font-size: 22px; }
+  .nav-pill{
+    display:flex; align-items:center; gap:8px; border:1px solid var(--border);
+    background: var(--bg-elevated); color: var(--text); padding:8px 14px; border-radius:999px;
+    font-size:13px; font-weight:500;
+  }
+  .nav-pill b{ font-family: var(--font-display); font-weight:600; color: var(--accent); }
 
-  /* ---------- SHOPPING DRAWER ---------- */
-  .drawer-toggle{
-    position: fixed; right: 22px; bottom: 22px;
-    background: var(--accent); color: var(--accent-ink);
-    border: none; border-radius: 999px; padding: 14px 20px;
-    font-weight: 700; font-size: 14px;
-    box-shadow: 0 12px 30px -10px rgba(var(--shadow-rgb),0.6);
-    display:flex; align-items:center; gap:8px;
-    z-index: 40;
-  }
-  .drawer-toggle .badge{
-    background: var(--accent-ink); color: var(--accent);
-    font-family: var(--font-mono); font-size: 11px;
-    border-radius: 999px; padding: 2px 7px;
-  }
-  .drawer{
-    position: fixed; top:0; right:0; height:100vh; width: min(380px, 90vw);
-    background: var(--surface); border-left: 1px solid var(--line);
-    transform: translateX(100%); transition: transform .3s ease;
-    z-index: 50; display:flex; flex-direction:column;
-    box-shadow: -20px 0 50px rgba(var(--shadow-rgb),0.4);
-  }
-  .drawer.open{ transform: translateX(0); }
-  .drawer-head{
-    display:flex; justify-content: space-between; align-items:center;
-    padding: 20px; border-bottom: 1px solid var(--line);
-  }
-  .drawer-head h3{ font-family: var(--font-display); font-size: 20px; margin:0; }
-  .drawer-close{ background:none; border:none; color: var(--text-dim); font-size: 20px; }
-  .drawer-body{ padding: 18px 20px; overflow-y:auto; flex:1; }
-  .drawer-body h4{
-    font-family: var(--font-mono); font-size: 11px; text-transform:uppercase;
-    letter-spacing:0.06em; color: var(--text-dim); margin: 16px 0 8px;
-  }
-  .drawer-body h4:first-child{ margin-top: 0; }
-  .drawer-item{
-    display:flex; justify-content: space-between; gap: 10px;
-    font-size: 14px; padding: 6px 0; border-bottom: 1px dotted var(--line);
-  }
-  .drawer-item span:last-child{ color: var(--accent); font-family: var(--font-mono); font-size: 13px; white-space:nowrap; }
-  .drawer-empty{ color: var(--text-dim); font-size: 14px; padding-top: 20px; }
-  .drawer-foot{ padding: 16px 20px; border-top: 1px solid var(--line); }
-  .scrim{
-    position: fixed; inset:0; background: rgba(0,0,0,0.5);
-    opacity:0; pointer-events:none; transition: opacity .3s ease; z-index: 45;
-  }
-  .scrim.open{ opacity:1; pointer-events:auto; }
+  /* ---------- VIEWS ---------- */
+  .view{ display:none; }
+  .view.active{ display:block; animation: fadeUp .5s ease both; }
+  @keyframes fadeUp{ from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);} }
 
-  /* ---------- KOCHLISTE (persistente Zubereitungsliste) ---------- */
-  .cooklist-toggle{
-    position: fixed; right: 22px; bottom: 84px;
-    background: var(--surface); color: var(--text);
-    border: 1px solid var(--line); border-radius: 999px; padding: 12px 18px;
-    font-weight: 700; font-size: 14px;
-    box-shadow: 0 12px 30px -10px rgba(var(--shadow-rgb),0.5);
-    display:flex; align-items:center; gap:8px;
-    z-index: 40;
-  }
-  .cooklist-toggle .badge{
-    background: var(--coral); color: #2a1509;
-    font-family: var(--font-mono); font-size: 11px;
-    border-radius: 999px; padding: 2px 7px;
-  }
-  .cooklist-item{
-    background: var(--card); color: var(--ink);
-    border-radius: 2px; padding: 22px 24px;
-    box-shadow: 0 14px 30px -18px rgba(var(--shadow-rgb),0.5);
-    margin-bottom: 18px;
-  }
-  .cooklist-item-head{
-    display:flex; justify-content: space-between; align-items: baseline;
-    gap: 12px; border-bottom: 1px dashed var(--ink-dim);
-    padding-bottom: 12px; margin-bottom: 14px; flex-wrap: wrap;
-  }
-  .cooklist-item-head h3{ font-family: var(--font-display); font-size: 19px; margin:0; }
-  .cooklist-batches{ font-family: var(--font-mono); font-size: 12px; color: var(--ink-dim); white-space:nowrap; }
-  .cooklist-cols{ display:flex; flex-direction:column; gap: 18px; }
-  @media (min-width: 640px){
-    .cooklist-cols{ flex-direction: row; }
-    .cooklist-cols > div:first-child{ flex: 0 0 36%; }
-    .cooklist-cols > div:last-child{ flex: 1; }
-  }
-  .cooklist-cols h4{
-    font-family: var(--font-mono); font-size: 11px; text-transform:uppercase;
-    letter-spacing:0.06em; color: var(--ink-dim); margin: 0 0 8px;
-  }
-  .cooklist-cols ul{ margin:0; padding-left: 18px; font-size: 14px; }
-  .cooklist-cols ul li{ margin-bottom: 3px; }
-  .cooklist-steps{ list-style:none; margin:0; padding:0; }
-  .cooklist-step{
-    display:flex; align-items:flex-start; gap: 10px; margin-bottom: 10px;
-    font-size: 14px; cursor:pointer;
-  }
-  .cooklist-step input{ margin-top: 3px; accent-color: var(--coral); flex-shrink:0; }
-  .cooklist-step input:checked + span{ text-decoration: line-through; opacity: 0.5; }
+  /* ---------- FORM ---------- */
+  .form-progress{ display:flex; align-items:center; gap:10px; margin-bottom:26px; }
+  .form-progress-track{ flex:1; height:6px; border-radius:3px; background: var(--surface-muted); overflow:hidden; }
+  .form-progress-fill{ height:100%; background: var(--accent); border-radius:3px; transition:width .3s ease; }
+  .form-progress-label{ font-size:12px; color: var(--text-secondary); white-space:nowrap; }
 
-  .back-link{
-    background:none; border:none; color: var(--text-dim);
-    font-family: var(--font-mono); font-size: 12px;
-    display:flex; align-items:center; gap:6px; margin-bottom: 4px;
+  .form-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(340px,1fr)); gap:22px; align-items:start; }
+  .summary-card{ background: var(--bg-elevated); border:1px solid var(--border); border-radius:20px; padding:20px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+  .summary-card h4{ font-family: var(--font-display); font-weight:600; font-size:14px; margin:0 0 8px; }
+  .summary-card p{ font-size:13.5px; color: var(--text-secondary); line-height:1.6; margin:0; }
+
+  .form-card{ background: var(--bg-elevated); border:1px solid var(--border); border-radius:24px; padding:30px 26px; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+  .form-card h2{ font-family: var(--font-display); font-weight:600; font-size:26px; line-height:1.15; margin:0 0 6px; }
+  .form-card .lede{ font-size:13.5px; color: var(--text-secondary); margin-bottom:26px; max-width:44ch; }
+
+  .field-group{ display:flex; flex-direction:column; gap:26px; }
+  .field-label-row{ display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+  .field-num{
+    width:22px; height:22px; border-radius:999px; background: var(--accent-soft); color: var(--accent);
+    font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex:none;
   }
+  .field-num.optional{ background: var(--surface-muted); color: var(--text-secondary); }
+  .field-label-row .label{ font-size:13.5px; font-weight:600; }
+  .field-label-row .hint{ font-size:11.5px; color: var(--text-tertiary); }
+
+  .chip-row{ display:flex; flex-wrap:wrap; gap:8px; }
+  .chip-cat{ display:flex; align-items:center; gap:7px; border:1.5px solid var(--border); padding:9px 15px; border-radius:999px; font-size:13.5px; font-weight:500; }
+  .chip-time{ border:1.5px solid var(--border); padding:9px 16px; border-radius:999px; font-size:13.5px; font-weight:500; }
+  .chip-filter{ border:1.5px solid var(--border); padding:7px 13px; border-radius:8px; font-size:12.5px; font-weight:500; }
+
+  .stepper-row{ display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap:20px; }
+  .stepper{ display:flex; align-items:center; gap:12px; }
+  .stepper button{ width:34px; height:34px; border-radius:999px; border:1.5px solid var(--border); background: var(--bg-elevated); color: var(--text); font-size:17px; font-weight:600; }
+  .stepper .val{ font-family: var(--font-display); font-weight:600; font-size:19px; min-width:26px; text-align:center; }
+  .stepper .unit{ font-size:12.5px; color: var(--text-secondary); }
+
+  .form-footer{ display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; border-top:1px dashed var(--border); padding-top:22px; margin-top:28px; }
+  .form-footer .hint{ font-size:12.5px; color: var(--text-secondary); }
+  .btn-cta{ border:none; padding:13px 24px; border-radius:999px; font-weight:600; font-size:14.5px; }
+
+  /* ---------- RESULTS ---------- */
+  .back-link{ background:none; border:none; color: var(--text-secondary); font-size:12.5px; display:flex; align-items:center; gap:6px; padding:0; margin-bottom:14px; }
   .back-link:hover{ color: var(--accent); }
+  .view-title{ font-family: var(--font-display); font-weight:600; font-size:26px; margin:0 0 6px; }
 
-  @media (max-width: 600px){
-    .ticket{ padding: 26px 20px 22px; }
-    .submit-row{ flex-direction:column; align-items:stretch; }
-    .btn-primary{ width:100%; }
+  .results-head{ display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px; margin-bottom:18px; }
+  .combo-text{ font-size:13px; color: var(--text-secondary); margin-bottom:8px; }
+  .portions-line{ font-size:12.5px; color: var(--text-secondary); }
+  .portions-line b{ color: var(--accent); font-family: var(--font-display); }
+  .portions-track{ width:220px; height:6px; border-radius:3px; background: var(--surface-muted); overflow:hidden; margin-top:6px; }
+  .portions-fill{ height:100%; background: var(--accent); border-radius:3px; transition:width .3s ease; }
+  .btn-ghost{ display:flex; align-items:center; gap:8px; border:1px solid var(--border); background: var(--bg-elevated); color: var(--text); padding:9px 16px; border-radius:999px; font-size:13px; font-weight:500; }
+
+  .recipe-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap:18px; }
+  .recipe-card{ background: var(--bg-elevated); border:1px solid var(--border); border-radius:20px; padding:20px; display:flex; flex-direction:column; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+  .recipe-card-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .recipe-cat{ font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+  .recipe-time{ font-size:11.5px; color: var(--text-tertiary); }
+  .recipe-title{ font-family: var(--font-display); font-weight:600; font-size:17px; line-height:1.25; margin:0 0 10px; }
+  .recipe-tags{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
+  .tag-badge{ font-size:10.5px; font-weight:600; padding:4px 9px; border-radius:6px; }
+  .expand-btn{ background:none; border:none; color: var(--accent); font-size:12.5px; font-weight:600; padding:0; text-align:left; margin-bottom:10px; }
+  .recipe-detail{ margin-bottom:12px; }
+  .recipe-detail h5{ font-size:11px; font-weight:600; color: var(--text-secondary); text-transform:uppercase; letter-spacing:.04em; margin:0 0 6px; }
+  .recipe-detail ul{ margin:0 0 12px; padding-left:18px; font-size:13px; line-height:1.6; color: var(--text); }
+  .recipe-detail ol{ margin:0; padding-left:18px; font-size:13px; line-height:1.6; color: var(--text-secondary); }
+  .recipe-foot{ display:flex; align-items:center; justify-content:space-between; gap:10px; border-top:1px dashed var(--border); padding-top:12px; margin-top:4px; }
+  .freezer-note{ display:flex; align-items:center; gap:6px; font-size:11.5px; color: var(--text-tertiary); }
+  .batch-ctl{ display:flex; align-items:center; gap:10px; }
+  .batch-ctl button.minus{ width:26px; height:26px; border-radius:999px; border:1.5px solid var(--border); background: var(--bg-elevated); color: var(--text); font-size:14px; font-weight:600; }
+  .batch-ctl button.plus{ width:26px; height:26px; border-radius:999px; border:none; background: var(--accent); color: var(--accent-contrast); font-size:14px; font-weight:700; }
+  .batch-count{ font-family: var(--font-display); font-weight:600; font-size:14px; min-width:14px; text-align:center; }
+
+  .empty-state{ text-align:center; padding:60px 20px; background: var(--bg-elevated); border:1px solid var(--border); border-radius:20px; }
+  .empty-state h3{ font-family: var(--font-display); font-weight:600; font-size:20px; margin:0 0 8px; }
+  .empty-state p{ font-size:13.5px; color: var(--text-secondary); margin:0; }
+
+  /* ---------- SHOPPING / COOKLIST SHARED ---------- */
+  .sub-subtitle{ font-size:13px; color: var(--text-secondary); margin-bottom:22px; }
+
+  .shopping-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(300px,1fr)); gap:20px; margin-bottom:24px; }
+  .shopping-panel{ background: var(--bg-elevated); border:1px solid var(--border); border-radius:18px; padding:18px; }
+  .shopping-panel h5{ font-size:11px; font-weight:600; color: var(--text-secondary); text-transform:uppercase; letter-spacing:.04em; margin:0 0 10px; }
+  .shopping-item{ display:flex; justify-content:space-between; gap:10px; font-size:13.5px; padding:7px 0; border-bottom:1px dotted var(--border); }
+  .shopping-item .amt{ color: var(--accent); font-weight:600; white-space:nowrap; }
+  .shopping-recipe-item{ display:flex; align-items:center; gap:10px; font-size:13.5px; padding:7px 0; border-bottom:1px dotted var(--border); }
+  .shopping-recipe-item .dot{ width:8px; height:8px; border-radius:999px; flex:none; }
+  .shopping-recipe-item .batch-pill{ font-weight:600; padding:2px 8px; border-radius:999px; white-space:nowrap; font-size:12px; }
+  .shopping-actions{ display:flex; flex-wrap:wrap; gap:10px; }
+  .btn-accent{ background: var(--accent); color: var(--accent-contrast); border:none; padding:11px 18px; border-radius:999px; font-weight:600; font-size:13.5px; }
+  .btn-outline{ background:none; border:1px solid var(--border); color: var(--text); padding:11px 18px; border-radius:999px; font-weight:500; font-size:13.5px; }
+  .btn-outline.muted{ color: var(--text-secondary); }
+
+  .cooklist-list{ display:flex; flex-direction:column; gap:18px; }
+  .cooklist-item{ background: var(--bg-elevated); border:1px solid var(--border); border-top:3px solid; border-radius:20px; padding:22px; }
+  .cooklist-item-head{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; flex-wrap:wrap; border-bottom:1px dashed var(--border); padding-bottom:12px; margin-bottom:14px; }
+  .cooklist-item-head .cat{ font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px; }
+  .cooklist-item-head h3{ font-family: var(--font-display); font-weight:600; font-size:18px; margin:0; }
+  .cooklist-batches{ font-size:12px; font-weight:600; padding:5px 12px; border-radius:999px; white-space:nowrap; }
+  .cooklist-cols{ display:grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap:18px; }
+  .cooklist-cols h5{ font-size:11px; font-weight:600; color: var(--text-secondary); text-transform:uppercase; letter-spacing:.04em; margin:0 0 8px; }
+  .cooklist-cols ul{ margin:0; padding-left:18px; font-size:13.5px; line-height:1.6; }
+  .cooklist-steps{ display:flex; flex-direction:column; gap:9px; }
+  .cooklist-step{ display:flex; align-items:flex-start; gap:9px; font-size:13.5px; cursor:pointer; color: var(--text); }
+  .cooklist-step input{ margin-top:3px; accent-color: var(--accent); flex-shrink:0; }
+  .cooklist-step.checked{ text-decoration:line-through; color: var(--text-tertiary); }
+
+  /* ---------- TOAST ---------- */
+  .toast{
+    position:fixed; left:50%; bottom:26px; transform:translateX(-50%);
+    background: var(--text); color: var(--bg); padding:11px 20px; border-radius:999px;
+    font-size:13px; font-weight:500; box-shadow:0 10px 24px rgba(0,0,0,.2); z-index:100;
   }
 </style>
 </head>
 <body>
+
 <div class="app">
 
   <header class="masthead">
-    <div class="brand">The<span>MealPrep</span>Quest</div>
-    <div class="tag-line">Inspiration statt Grübeln</div>
+    <div>
+      <div class="brand">The<span>MealPrep</span>Quest</div>
+      <div class="tagline">Inspiration statt Grübeln</div>
+    </div>
+    <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Farbmodus wechseln" data-action="toggle-theme">
+      <span id="theme-icon"></span>
+    </button>
   </header>
 
-  <!-- ===================== QUESTIONNAIRE VIEW ===================== -->
-  <section id="view-form" class="view active">
-    <div class="ticket">
-      <div class="ticket-head">
-        <div>
-          <h1>Was wird&nbsp;gekocht?</h1>
-          <p>Vier kurze Angaben – dann bekommst du passende Rezepte für dein Meal Prep.</p>
-        </div>
-        <div class="ticket-no">BESTELLUNG №<span id="ticket-number">104</span></div>
-      </div>
+  <div class="nav-row">
+    <div class="round-badge">Runde #<span id="round-no"></span></div>
+    <div style="flex:1"></div>
+    <button type="button" class="nav-pill" id="nav-shopping" data-action="go-shopping">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 6h2l1.5 11h11L20 8H7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="20" r="1.2" fill="currentColor"/><circle cx="17" cy="20" r="1.2" fill="currentColor"/></svg>
+      Einkauf <b id="nav-shopping-count">0</b>
+    </button>
+    <button type="button" class="nav-pill" id="nav-cooklist" data-action="go-cooklist" style="display:none">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 3v6M9 3v6M6 9c0 2-1 3-1 6v6h4v-6c0-3-1-4-1-6M15 3c-2 0-3 2-3 5s1 4 3 4v9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Kochliste <b id="nav-cooklist-count">0</b>
+    </button>
+  </div>
 
-      <div class="field">
-        <div class="field-label"><span class="num">01</span> Worauf hast du Lust? <span style="text-transform:none; letter-spacing:0;">(Mehrfachauswahl möglich)</span></div>
-        <div class="choice-row" id="diet-row" data-multi="true">
-          <button class="choice diet-fleisch" data-value="fleisch">Fleisch</button>
-          <button class="choice diet-fisch" data-value="fisch">Fisch</button>
-          <button class="choice diet-vegetarisch" data-value="vegetarisch">Vegetarisch</button>
-          <button class="choice diet-vegan" data-value="vegan">Vegan</button>
-        </div>
-      </div>
-
-      <div class="field">
-        <div class="field-label"><span class="num">02</span> Wie viel Zeit hast du pro Kochsession?</div>
-        <div class="choice-row time-row" id="time-row" data-multi="false">
-          <button class="choice" data-value="30">bis 30 Min</button>
-          <button class="choice" data-value="60">bis 60 Min</button>
-          <button class="choice" data-value="90">90+ Min</button>
-        </div>
-      </div>
-
-      <div class="field">
-        <div class="field-label"><span class="num">03</span> Für wie viele Tage soll es reichen?</div>
-        <div class="stepper-row">
-          <div class="stepper" data-target="days">
-            <button data-dir="-1" aria-label="weniger Tage">−</button>
-            <span class="val" id="days-val">5</span>
-            <button data-dir="1" aria-label="mehr Tage">+</button>
-          </div>
-          <span class="stepper-hint">Tage</span>
-        </div>
-      </div>
-
-      <div class="field">
-        <div class="field-label"><span class="num">04</span> Für wie viele Personen?</div>
-        <div class="stepper-row">
-          <div class="stepper" data-target="persons">
-            <button data-dir="-1" aria-label="weniger Personen">−</button>
-            <span class="val" id="persons-val">2</span>
-            <button data-dir="1" aria-label="mehr Personen">+</button>
-          </div>
-          <span class="stepper-hint">Personen</span>
-        </div>
-      </div>
-
-      <div class="field" style="margin-bottom: 6px;">
-        <div class="field-label"><span class="num">05</span> Noch etwas Bestimmtes? <span style="text-transform:none; letter-spacing:0;">(optional)</span></div>
-        <div class="choice-row" id="tag-row" data-multi="true">
-          <button class="chip" data-value="lowcarb">Low Carb</button>
-          <button class="chip" data-value="protein">High Protein</button>
-          <button class="chip" data-value="kalorienarm">Kalorienarm</button>
-          <button class="chip" data-value="schnell">Schnell</button>
-        </div>
-      </div>
-
-      <div class="submit-row">
-        <div class="summary-line" id="summary-line">Wähle zuerst eine Kategorie aus.</div>
-        <button class="btn-primary" id="submit-btn" disabled>Rezepte finden →</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== RESULTS VIEW ===================== -->
-  <section id="view-results" class="view">
-    <button class="back-link" id="back-btn">← Angaben ändern</button>
-    <div class="results-head">
-      <div>
-        <h2 id="results-title">Deine Vorschläge</h2>
-        <div class="portions-track">
-          <span id="portions-collected">0</span> von <b id="portions-needed">10</b> Portionen geplant
-          <div class="portions-bar"><div class="portions-bar-fill" id="portions-fill"></div></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="toolbar" id="tag-toolbar">
-      <button class="ghost-btn" id="shuffle-btn">🔀 Andere Vorschläge</button>
-    </div>
-
-    <div class="recipe-grid" id="recipe-grid"></div>
-    <div class="empty-state" id="empty-state" style="display:none;">
-      <h3>Keine Treffer</h3>
-      <p>Mit dieser Kombination ist die Rezeptbox gerade leer. Versuch's ohne einen der Filter.</p>
-    </div>
-  </section>
-
-  <section id="view-cooklist" class="view">
-    <button class="back-link" id="cooklist-back-btn">← Zurück</button>
-    <div class="results-head">
-      <div>
-        <h2>Deine Kochliste</h2>
-        <p class="export-hint" style="margin:6px 0 0;">Bleibt gespeichert, bis du „Wochenplan leeren" antippst – auch nach dem Einkaufen, bis du tatsächlich kochst.</p>
-      </div>
-    </div>
-    <div id="cooklist-body"></div>
-  </section>
+  <section id="view-form" class="view active"></section>
+  <section id="view-results" class="view"></section>
+  <section id="view-shopping" class="view"></section>
+  <section id="view-cooklist" class="view"></section>
 
 </div>
 
-<button class="cooklist-toggle" id="cooklist-toggle" style="display:none;">
-  🍳 Kochliste <span class="badge" id="cooklist-badge">0</span>
-</button>
-<button class="drawer-toggle" id="drawer-toggle">
-  🛒 Einkaufsliste <span class="badge" id="drawer-badge">0</span>
-</button>
-<div class="scrim" id="scrim"></div>
-<aside class="drawer" id="drawer">
-  <div class="drawer-head">
-    <h3>Einkaufsliste</h3>
-    <button class="drawer-close" id="drawer-close" aria-label="Schließen">✕</button>
-  </div>
-  <div class="drawer-body" id="drawer-body">
-    <p class="drawer-empty">Noch nichts geplant. Füg über „+“ an einer Rezeptkarte Portionen hinzu.</p>
-  </div>
-  <div class="drawer-foot">
-    <button class="btn-primary" id="export-ics-btn" style="width:100%; margin-bottom:8px;" disabled>📱 Für Apple Erinnerungen exportieren</button>
-    <p class="export-hint">Öffnet die Datei am iPhone/Mac direkt in Erinnerungen bzw. im Kalender-Import.</p>
-    <button class="ghost-btn" id="copy-list-btn" style="width:100%; text-align:center; margin-bottom:10px;" disabled>Liste kopieren (zum Einfügen)</button>
-    <button class="ghost-btn" id="clear-plan-btn" style="width:100%; text-align:center;">Wochenplan leeren</button>
-  </div>
-</aside>
+<div id="toast" class="toast" style="display:none"></div>
 
-<script>
-// Rezept-Datenbank – Mengen in "ingredients" sind PRO PERSON PRO PORTION.
-// tags: 'lowcarb' | 'protein' | 'kalorienarm' | 'schnell' (alle Tags sind vollständig manuell gepflegt –
-// es gibt KEINE automatische Ableitung von 'schnell' aus time <= 30, das muss pro Rezept selbst gesetzt werden)
-// nutrition: { kcal, protein, carbs, fat } – ebenfalls PRO PORTION, protein/carbs/fat in Gramm.
+<script type="module">
+"use strict";
+import { RECIPES } from "./recipes-data.js";
 
-const RECIPES = [
-  // ---------------- FLEISCH ----------------
-  {
-    id: "hf1", category: "fleisch", title: "Hähnchen-Gemüse-Pfanne mit Reis",
-    time: 30, freezer: true, tags: ["protein", "schnell", "kalorienarm"],
-    nutrition: { kcal: 445, protein: 43, carbs: 60, fat: 3 },
-    ingredients: [
-      { name: "Hähnchenbrust", amount: 150, unit: "g" },
-      { name: "Reis", amount: 60, unit: "g" },
-      { name: "Paprika", amount: 0.5, unit: "Stk" },
-      { name: "Brokkoli", amount: 100, unit: "g" },
-      { name: "Sojasauce", amount: 1, unit: "EL" },
-      { name: "Knoblauch", amount: 1, unit: "Zehe" },
-    ],
-    steps: [
-      "Reis nach Packungsanweisung kochen.",
-      "Hähnchen in Streifen schneiden, scharf anbraten.",
-      "Gemüse zugeben, 5–6 Min mitbraten.",
-      "Mit Sojasauce und Knoblauch abschmecken, mit Reis servieren.",
-    ],
-  },
-  {
-    id: "hf2", category: "fleisch", title: "Rindfleisch-Chili mit Kidneybohnen",
-    time: 55, freezer: true, tags: ["protein"],
-    nutrition: { kcal: 500, protein: 35, carbs: 35, fat: 24 },
-    ingredients: [
-      { name: "Rinderhack", amount: 140, unit: "g" },
-      { name: "Kidneybohnen", amount: 80, unit: "g" },
-      { name: "Tomaten, gehackt", amount: 150, unit: "g" },
-      { name: "Zwiebel", amount: 0.5, unit: "Stk" },
-      { name: "Mais", amount: 40, unit: "g" },
-      { name: "Chilipulver", amount: 0.5, unit: "TL" },
-    ],
-    steps: [
-      "Zwiebel andünsten, Hack scharf anbraten.",
-      "Tomaten, Bohnen und Mais zugeben, würzen.",
-      "20–25 Min köcheln lassen, gelegentlich umrühren.",
-    ],
-  },
-  {
-    id: "hf3", category: "fleisch", title: "Putengeschnetzeltes mit Süßkartoffel",
-    time: 35, freezer: true, tags: ["protein", "kalorienarm"],
-    nutrition: { kcal: 360, protein: 37, carbs: 34, fat: 7 },
-    ingredients: [
-      { name: "Putenbrust", amount: 150, unit: "g" },
-      { name: "Süßkartoffel", amount: 150, unit: "g" },
-      { name: "Zucchini", amount: 80, unit: "g" },
-      { name: "Sahne (leicht)", amount: 2, unit: "EL" },
-      { name: "Paprikapulver", amount: 0.5, unit: "TL" },
-    ],
-    steps: [
-      "Süßkartoffel würfeln, im Ofen oder in der Pfanne garen.",
-      "Pute in Streifen anbraten, Zucchini zugeben.",
-      "Mit Sahne und Paprikapulver ablöschen, kurz einkochen.",
-    ],
-  },
-  {
-    id: "hf4", category: "fleisch", title: "Gyros-Bowl mit Tzatziki",
-    time: 40, freezer: false, tags: ["protein", "kalorienarm"],
-    nutrition: { kcal: 450, protein: 42, carbs: 55, fat: 8 },
-    ingredients: [
-      { name: "Schweinegeschnetzeltes", amount: 150, unit: "g" },
-      { name: "Gyrosgewürz", amount: 1, unit: "TL" },
-      { name: "Bulgur", amount: 60, unit: "g" },
-      { name: "Gurke", amount: 0.3, unit: "Stk" },
-      { name: "Joghurt", amount: 60, unit: "g" },
-      { name: "Cherrytomaten", amount: 60, unit: "g" },
-    ],
-    steps: [
-      "Bulgur nach Packungsanweisung quellen lassen.",
-      "Fleisch mit Gyrosgewürz scharf anbraten.",
-      "Gurke fein reiben, mit Joghurt zu Tzatziki verrühren.",
-      "Alles in einer Bowl anrichten.",
-    ],
-  },
-  {
-    id: "hf5", category: "fleisch", title: "Hackfleisch-Zucchini-Auflauf",
-    time: 50, freezer: true, tags: ["lowcarb", "protein", "kalorienarm"],
-    nutrition: { kcal: 440, protein: 34, carbs: 10, fat: 29 },
-    ingredients: [
-      { name: "Rinderhack", amount: 130, unit: "g" },
-      { name: "Zucchini", amount: 200, unit: "g" },
-      { name: "Tomatensauce", amount: 80, unit: "g" },
-      { name: "Mozzarella", amount: 40, unit: "g" },
-      { name: "Oregano", amount: 0.5, unit: "TL" },
-    ],
-    steps: [
-      "Hack anbraten, mit Tomatensauce und Oregano mischen.",
-      "Zucchini in Scheiben schichten, Hackmasse darauf verteilen.",
-      "Mit Mozzarella belegen, 20 Min bei 200°C backen.",
-    ],
-  },
-  {
-    id: "hf6", category: "fleisch", title: "Asiatisches Rind mit Glasnudeln",
-    time: 25, freezer: false, tags: ["schnell", "protein", "kalorienarm"],
-    nutrition: { kcal: 390, protein: 31, carbs: 50, fat: 6 },
-    ingredients: [
-      { name: "Rinderstreifen", amount: 140, unit: "g" },
-      { name: "Glasnudeln", amount: 50, unit: "g" },
-      { name: "Karotte", amount: 0.5, unit: "Stk" },
-      { name: "Frühlingszwiebel", amount: 1, unit: "Stk" },
-      { name: "Sojasauce", amount: 1, unit: "EL" },
-      { name: "Ingwer", amount: 1, unit: "TL" },
-    ],
-    steps: [
-      "Glasnudeln in heißem Wasser einweichen.",
-      "Rind scharf anbraten, Karotte und Ingwer zugeben.",
-      "Nudeln und Sojasauce unterheben, mit Frühlingszwiebel servieren.",
-    ],
-  },
-  {
-    id: "hf7", category: "fleisch", title: "Schweinefilet mit Kartoffelpüree und grünen Bohnen",
-    time: 45, freezer: true, tags: ["protein", "kalorienarm"],
-    nutrition: { kcal: 405, protein: 40, carbs: 44, fat: 8 },
-    ingredients: [
-      { name: "Schweinefilet", amount: 150, unit: "g" },
-      { name: "Kartoffeln", amount: 200, unit: "g" },
-      { name: "Milch", amount: 30, unit: "ml" },
-      { name: "grüne Bohnen", amount: 120, unit: "g" },
-      { name: "Butter", amount: 1, unit: "TL" },
-    ],
-    steps: [
-      "Kartoffeln schälen, würfeln und in Salzwasser weich kochen.",
-      "Mit Milch und Butter zu Püree stampfen.",
-      "Schweinefilet in Medaillons schneiden, scharf anbraten, 6–8 Min braten.",
-      "Bohnen in Salzwasser 8 Min garen, abgießen.",
-      "Alles zusammen anrichten.",
-    ],
-  },
-  {
-    id: "hf8", category: "fleisch", title: "Hähnchen-Curry mit Kokosmilch und Spinat",
-    time: 35, freezer: true, tags: ["protein"],
-    nutrition: { kcal: 570, protein: 44, carbs: 46, fat: 24 },
-    ingredients: [
-      { name: "Hähnchenbrust", amount: 150, unit: "g" },
-      { name: "Kokosmilch", amount: 100, unit: "ml" },
-      { name: "Spinat", amount: 100, unit: "g" },
-      { name: "Currypaste", amount: 1, unit: "TL" },
-      { name: "Reis", amount: 50, unit: "g" },
-    ],
-    steps: [
-      "Reis nach Packungsanweisung kochen.",
-      "Hähnchen würfeln und in einer Pfanne anbraten.",
-      "Currypaste einrühren, kurz mitrösten.",
-      "Kokosmilch angießen, 8–10 Min köcheln lassen.",
-      "Spinat unterrühren, zusammenfallen lassen, mit Reis servieren.",
-    ],
-  },
-  {
-    id: "hf9", category: "fleisch", title: "Lammhack-Pita mit Joghurtsauce",
-    time: 25, freezer: false, tags: ["schnell", "protein"],
-    nutrition: { kcal: 490, protein: 28, carbs: 26, fat: 29 },
-    ingredients: [
-      { name: "Lammhack", amount: 130, unit: "g" },
-      { name: "Fladenbrot", amount: 0.5, unit: "Stk" },
-      { name: "Joghurt", amount: 50, unit: "g" },
-      { name: "Gurke", amount: 0.3, unit: "Stk" },
-      { name: "Minze", amount: 3, unit: "g" },
-      { name: "Kreuzkümmel", amount: 0.5, unit: "TL" },
-    ],
-    steps: [
-      "Lammhack mit Kreuzkümmel würzen und krümelig anbraten.",
-      "Gurke fein würfeln, mit Joghurt und Minze zu einer Sauce verrühren.",
-      "Fladenbrot kurz erwärmen.",
-      "Lammhack und Joghurtsauce ins Fladenbrot füllen oder daneben servieren.",
-    ],
-  },
-
-  // ---------------- FISCH ----------------
-  {
-    id: "fi1", category: "fisch", title: "Lachs mit Ofengemüse",
-    time: 35, freezer: true, tags: ["protein", "lowcarb"],
-    nutrition: { kcal: 500, protein: 34, carbs: 16, fat: 34 },
-    ingredients: [
-      { name: "Lachsfilet", amount: 150, unit: "g" },
-      { name: "Brokkoli", amount: 100, unit: "g" },
-      { name: "Karotte", amount: 80, unit: "g" },
-      { name: "Olivenöl", amount: 1, unit: "EL" },
-      { name: "Zitrone", amount: 0.25, unit: "Stk" },
-    ],
-    steps: [
-      "Gemüse mit Öl vermengen, 15 Min bei 200°C vorbacken.",
-      "Lachs dazugeben, weitere 12–15 Min backen.",
-      "Mit Zitrone beträufeln.",
-    ],
-  },
-  {
-    id: "fi2", category: "fisch", title: "Garnelen-Zoodles mit Knoblauch",
-    time: 20, freezer: false, tags: ["lowcarb", "schnell", "kalorienarm", "protein"],
-    nutrition: { kcal: 270, protein: 26, carbs: 8, fat: 16 },
-    ingredients: [
-      { name: "Garnelen", amount: 130, unit: "g" },
-      { name: "Zucchini (zu Zoodles)", amount: 200, unit: "g" },
-      { name: "Knoblauch", amount: 1, unit: "Zehe" },
-      { name: "Chiliflocken", amount: 1, unit: "Prise" },
-      { name: "Olivenöl", amount: 1, unit: "EL" },
-    ],
-    steps: [
-      "Zucchini zu Nudeln spiralisieren.",
-      "Garnelen mit Knoblauch und Chili kurz anbraten.",
-      "Zoodles 2 Min mitschwenken, sofort servieren.",
-    ],
-  },
-  {
-    id: "fi3", category: "fisch", title: "Thunfisch-Bowl mit Quinoa",
-    time: 25, freezer: false, tags: ["protein", "schnell"],
-    nutrition: { kcal: 490, protein: 46, carbs: 47, fat: 13 },
-    ingredients: [
-      { name: "Thunfisch (im eigenen Saft)", amount: 120, unit: "g" },
-      { name: "Quinoa", amount: 60, unit: "g" },
-      { name: "Avocado", amount: 0.25, unit: "Stk" },
-      { name: "Edamame", amount: 50, unit: "g" },
-      { name: "Sojasauce", amount: 1, unit: "TL" },
-    ],
-    steps: [
-      "Quinoa kochen und abkühlen lassen.",
-      "Edamame kurz blanchieren.",
-      "Alle Zutaten in einer Bowl anrichten, mit Sojasauce beträufeln.",
-    ],
-  },
-  {
-    id: "fi4", category: "fisch", title: "Kabeljau-Curry mit Kokosmilch",
-    time: 40, freezer: true, tags: ["protein"],
-    nutrition: { kcal: 560, protein: 35, carbs: 55, fat: 23 },
-    ingredients: [
-      { name: "Kabeljaufilet", amount: 150, unit: "g" },
-      { name: "Kokosmilch", amount: 100, unit: "ml" },
-      { name: "Currypaste", amount: 1, unit: "TL" },
-      { name: "Paprika", amount: 0.5, unit: "Stk" },
-      { name: "Reis", amount: 60, unit: "g" },
-    ],
-    steps: [
-      "Currypaste in Kokosmilch anrühren, aufkochen.",
-      "Paprika zugeben, 5 Min köcheln.",
-      "Fisch zugeben, 8–10 Min ziehen lassen. Mit Reis servieren.",
-    ],
-  },
-  {
-    id: "fi5", category: "fisch", title: "Fischfrikadellen mit Gurkensalat",
-    time: 45, freezer: true, tags: ["protein", "lowcarb", "kalorienarm"],
-    nutrition: { kcal: 260, protein: 34, carbs: 20, fat: 5 },
-    ingredients: [
-      { name: "Weißfischfilet", amount: 150, unit: "g" },
-      { name: "Ei", amount: 0.5, unit: "Stk" },
-      { name: "Semmelbrösel", amount: 20, unit: "g" },
-      { name: "Gurke", amount: 0.5, unit: "Stk" },
-      { name: "Dill", amount: 1, unit: "TL" },
-    ],
-    steps: [
-      "Fisch fein hacken, mit Ei und Semmelbröseln vermengen.",
-      "Frikadellen formen und goldbraun braten.",
-      "Gurke in Scheiben hobeln, mit Dill anmachen.",
-    ],
-  },
-  {
-    id: "fi6", category: "fisch", title: "Räucherlachs-Linsen-Salat",
-    time: 15, freezer: false, tags: ["schnell", "protein", "kalorienarm"],
-    nutrition: { kcal: 280, protein: 30, carbs: 28, fat: 5 },
-    ingredients: [
-      { name: "Räucherlachs", amount: 100, unit: "g" },
-      { name: "Linsen (gekocht)", amount: 120, unit: "g" },
-      { name: "Rucola", amount: 30, unit: "g" },
-      { name: "Kirschtomaten", amount: 60, unit: "g" },
-      { name: "Zitronensaft", amount: 1, unit: "EL" },
-    ],
-    steps: [
-      "Linsen mit Rucola und Tomaten mischen.",
-      "Lachs in Streifen darauf anrichten.",
-      "Mit Zitronensaft beträufeln.",
-    ],
-  },
-  {
-    id: "fi7", category: "fisch", title: "Seelachs-Auflauf mit Kartoffeln und Lauch",
-    time: 45, freezer: true, tags: ["protein", "kalorienarm"],
-    nutrition: { kcal: 445, protein: 39, carbs: 39, fat: 15 },
-    ingredients: [
-      { name: "Seelachsfilet", amount: 150, unit: "g" },
-      { name: "Kartoffeln", amount: 150, unit: "g" },
-      { name: "Lauch", amount: 80, unit: "g" },
-      { name: "Sahne (leicht)", amount: 2, unit: "EL" },
-      { name: "Käse (gerieben)", amount: 30, unit: "g" },
-    ],
-    steps: [
-      "Kartoffeln in Scheiben schneiden, 10 Min vorkochen.",
-      "Lauch in Ringe schneiden, kurz andünsten.",
-      "Kartoffeln, Lauch und Fisch in eine Auflaufform schichten.",
-      "Mit Sahne beträufeln, mit Käse bestreuen.",
-      "20 Min bei 200°C überbacken.",
-    ],
-  },
-  {
-    id: "fi8", category: "fisch", title: "Fisch-Tacos mit Rotkohlsalat",
-    time: 25, freezer: false, tags: ["schnell", "protein", "kalorienarm"],
-    nutrition: { kcal: 290, protein: 29, carbs: 35, fat: 3 },
-    ingredients: [
-      { name: "Weißfischfilet", amount: 130, unit: "g" },
-      { name: "Maistortilla", amount: 2, unit: "Stk" },
-      { name: "Rotkohl", amount: 80, unit: "g" },
-      { name: "Joghurt", amount: 30, unit: "g" },
-      { name: "Limette", amount: 0.5, unit: "Stk" },
-      { name: "Paprikapulver", amount: 0.5, unit: "TL" },
-    ],
-    steps: [
-      "Fisch mit Paprikapulver würzen, in der Pfanne braten und grob zerteilen.",
-      "Rotkohl fein hobeln, mit Limettensaft vermengen.",
-      "Tortillas kurz erwärmen.",
-      "Tortillas mit Fisch, Rotkohlsalat und einem Klecks Joghurt füllen.",
-    ],
-  },
-  {
-    id: "fi9", category: "fisch", title: "Forelle mit Mandeln und grünem Spargel",
-    time: 30, freezer: false, tags: ["schnell", "protein", "lowcarb", "kalorienarm"],
-    nutrition: { kcal: 380, protein: 38, carbs: 10, fat: 22 },
-    ingredients: [
-      { name: "Forellenfilet", amount: 150, unit: "g" },
-      { name: "grüner Spargel", amount: 150, unit: "g" },
-      { name: "Mandelblättchen", amount: 15, unit: "g" },
-      { name: "Butter", amount: 1, unit: "TL" },
-      { name: "Zitrone", amount: 0.25, unit: "Stk" },
-    ],
-    steps: [
-      "Spargel waschen, holzige Enden entfernen.",
-      "Forelle salzen, in Butter braten, ca. 4 Min pro Seite.",
-      "Spargel parallel in etwas Wasser oder Butter 6–8 Min garen.",
-      "Mandelblättchen kurz in einer Pfanne rösten.",
-      "Forelle mit Spargel anrichten, mit Mandeln und Zitrone servieren.",
-    ],
-  },
-
-  // ---------------- VEGETARISCH ----------------
-  {
-    id: "ve1", category: "vegetarisch", title: "Ofengemüse mit Halloumi",
-    time: 35, freezer: false, tags: ["lowcarb", "protein"],
-    nutrition: { kcal: 500, protein: 25, carbs: 15, fat: 40 },
-    ingredients: [
-      { name: "Halloumi", amount: 100, unit: "g" },
-      { name: "Zucchini", amount: 100, unit: "g" },
-      { name: "Paprika", amount: 0.5, unit: "Stk" },
-      { name: "rote Zwiebel", amount: 0.5, unit: "Stk" },
-      { name: "Olivenöl", amount: 1, unit: "EL" },
-    ],
-    steps: [
-      "Gemüse würfeln, mit Öl vermengen, 20 Min bei 200°C rösten.",
-      "Halloumi in Scheiben anbraten.",
-      "Alles zusammen servieren.",
-    ],
-  },
-  {
-    id: "ve2", category: "vegetarisch", title: "Linsen-Dal mit Fladenbrot",
-    time: 40, freezer: true, tags: ["protein"],
-    nutrition: { kcal: 565, protein: 25, carbs: 77, fat: 20 },
-    ingredients: [
-      { name: "rote Linsen", amount: 80, unit: "g" },
-      { name: "Kokosmilch", amount: 80, unit: "ml" },
-      { name: "Curry-Gewürzmischung", amount: 1, unit: "TL" },
-      { name: "Zwiebel", amount: 0.3, unit: "Stk" },
-      { name: "Fladenbrot", amount: 0.5, unit: "Stk" },
-    ],
-    steps: [
-      "Zwiebel andünsten, Gewürze kurz mitrösten.",
-      "Linsen und Kokosmilch zugeben, mit Wasser auffüllen.",
-      "20 Min köcheln, bis Linsen weich sind.",
-    ],
-  },
-  {
-    id: "ve3", category: "vegetarisch", title: "Caprese-Nudelsalat",
-    time: 20, freezer: false, tags: ["schnell"],
-    nutrition: { kcal: 535, protein: 21, carbs: 49, fat: 27 },
-    ingredients: [
-      { name: "Vollkornnudeln", amount: 70, unit: "g" },
-      { name: "Kirschtomaten", amount: 100, unit: "g" },
-      { name: "Mozzarella", amount: 60, unit: "g" },
-      { name: "Basilikum", amount: 5, unit: "g" },
-      { name: "Olivenöl", amount: 1, unit: "EL" },
-    ],
-    steps: [
-      "Nudeln kochen, abkühlen lassen.",
-      "Tomaten halbieren, Mozzarella würfeln.",
-      "Alles mit Öl und Basilikum vermengen.",
-    ],
-  },
-  {
-    id: "ve4", category: "vegetarisch", title: "Gemüse-Frittata",
-    time: 30, freezer: true, tags: ["lowcarb", "protein", "kalorienarm", "schnell"],
-    nutrition: { kcal: 340, protein: 26, carbs: 7, fat: 24 },
-    ingredients: [
-      { name: "Eier", amount: 3, unit: "Stk" },
-      { name: "Spinat", amount: 60, unit: "g" },
-      { name: "Feta", amount: 40, unit: "g" },
-      { name: "Cherrytomaten", amount: 50, unit: "g" },
-    ],
-    steps: [
-      "Eier verquirlen, mit Gemüse und Feta mischen.",
-      "In eine Pfanne geben, bei mittlerer Hitze stocken lassen.",
-      "10 Min im Ofen bei 180°C fertig backen.",
-    ],
-  },
-  {
-    id: "ve5", category: "vegetarisch", title: "Kichererbsen-Curry",
-    time: 30, freezer: true, tags: ["schnell"],
-    nutrition: { kcal: 550, protein: 17, carbs: 77, fat: 20 },
-    ingredients: [
-      { name: "Kichererbsen", amount: 120, unit: "g" },
-      { name: "Kokosmilch", amount: 80, unit: "ml" },
-      { name: "Tomaten, gehackt", amount: 100, unit: "g" },
-      { name: "Currypulver", amount: 1, unit: "TL" },
-      { name: "Reis", amount: 60, unit: "g" },
-    ],
-    steps: [
-      "Currypulver kurz anrösten.",
-      "Tomaten, Kokosmilch und Kichererbsen zugeben.",
-      "15 Min köcheln, mit Reis servieren.",
-    ],
-  },
-  {
-    id: "ve6", category: "vegetarisch", title: "Quinoa-Bowl mit Feta und Granatapfel",
-    time: 25, freezer: false, tags: ["schnell", "kalorienarm"],
-    nutrition: { kcal: 395, protein: 17, carbs: 50, fat: 15 },
-    ingredients: [
-      { name: "Quinoa", amount: 60, unit: "g" },
-      { name: "Feta", amount: 50, unit: "g" },
-      { name: "Granatapfelkerne", amount: 30, unit: "g" },
-      { name: "Gurke", amount: 0.3, unit: "Stk" },
-      { name: "Minze", amount: 3, unit: "g" },
-    ],
-    steps: [
-      "Quinoa kochen und abkühlen lassen.",
-      "Gurke würfeln, mit Feta und Granatapfel mischen.",
-      "Mit Minze bestreuen.",
-    ],
-  },
-  {
-    id: "ve7", category: "vegetarisch", title: "Pilz-Risotto mit Parmesan",
-    time: 40, freezer: false, tags: ["kalorienarm"],
-    nutrition: { kcal: 380, protein: 16, carbs: 56, fat: 10 },
-    ingredients: [
-      { name: "Risottoreis", amount: 60, unit: "g" },
-      { name: "Champignons", amount: 150, unit: "g" },
-      { name: "Parmesan", amount: 20, unit: "g" },
-      { name: "Gemüsebrühe", amount: 200, unit: "ml" },
-      { name: "Zwiebel", amount: 0.3, unit: "Stk" },
-      { name: "Butter", amount: 1, unit: "TL" },
-    ],
-    steps: [
-      "Zwiebel fein würfeln und in Butter andünsten.",
-      "Risottoreis zugeben, kurz mitrösten.",
-      "Nach und nach heiße Brühe angießen, dabei ständig rühren, bis der Reis cremig ist (ca. 20 Min).",
-      "Champignons separat anbraten und unterheben.",
-      "Parmesan einrühren, mit Salz und Pfeffer abschmecken.",
-    ],
-  },
-  {
-    id: "ve8", category: "vegetarisch", title: "Shakshuka mit Feta",
-    time: 25, freezer: false, tags: ["schnell", "lowcarb", "kalorienarm"],
-    nutrition: { kcal: 300, protein: 19, carbs: 18, fat: 17 },
-    ingredients: [
-      { name: "Eier", amount: 2, unit: "Stk" },
-      { name: "Tomaten, gehackt", amount: 200, unit: "g" },
-      { name: "Paprika", amount: 0.5, unit: "Stk" },
-      { name: "Feta", amount: 30, unit: "g" },
-      { name: "Zwiebel", amount: 0.3, unit: "Stk" },
-      { name: "Kreuzkümmel", amount: 0.5, unit: "TL" },
-    ],
-    steps: [
-      "Zwiebel und Paprika andünsten.",
-      "Tomaten zugeben, mit Kreuzkümmel würzen, 10 Min köcheln.",
-      "Mulden in die Sauce drücken, Eier hineingeben.",
-      "Zugedeckt stocken lassen, bis das Eiweiß fest ist.",
-      "Mit Feta bestreuen und servieren.",
-    ],
-  },
-  {
-    id: "ve9", category: "vegetarisch", title: "Gemüse-Chili sin Carne mit Käse",
-    time: 40, freezer: true, tags: ["kalorienarm"],
-    nutrition: { kcal: 340, protein: 20, carbs: 43, fat: 10 },
-    ingredients: [
-      { name: "Kidneybohnen", amount: 100, unit: "g" },
-      { name: "Mais", amount: 60, unit: "g" },
-      { name: "Tomaten, gehackt", amount: 150, unit: "g" },
-      { name: "Paprika", amount: 0.5, unit: "Stk" },
-      { name: "Käse (gerieben)", amount: 30, unit: "g" },
-      { name: "Chilipulver", amount: 0.5, unit: "TL" },
-    ],
-    steps: [
-      "Paprika würfeln, kurz andünsten.",
-      "Tomaten, Bohnen und Mais zugeben.",
-      "Mit Chilipulver würzen, 20 Min köcheln lassen.",
-      "Mit Käse bestreut servieren.",
-    ],
-  },
-
-  // ---------------- VEGAN ----------------
-  {
-    id: "va1", category: "vegan", title: "Buddha Bowl mit Tofu",
-    time: 35, freezer: false, tags: ["protein", "kalorienarm"],
-    nutrition: { kcal: 450, protein: 29, carbs: 43, fat: 21 },
-    ingredients: [
-      { name: "Tofu", amount: 120, unit: "g" },
-      { name: "Süßkartoffel", amount: 100, unit: "g" },
-      { name: "Grünkohl", amount: 50, unit: "g" },
-      { name: "Tahin", amount: 1, unit: "EL" },
-      { name: "Kichererbsen", amount: 60, unit: "g" },
-    ],
-    steps: [
-      "Süßkartoffel würfeln und rösten, Kichererbsen mitrösten.",
-      "Tofu würfeln und knusprig anbraten.",
-      "Alles mit Grünkohl in einer Bowl anrichten, mit Tahin beträufeln.",
-    ],
-  },
-  {
-    id: "va2", category: "vegan", title: "Rote-Linsen-Suppe",
-    time: 30, freezer: true, tags: ["protein", "kalorienarm", "schnell"],
-    nutrition: { kcal: 395, protein: 25, carbs: 72, fat: 2 },
-    ingredients: [
-      { name: "rote Linsen", amount: 100, unit: "g" },
-      { name: "Karotte", amount: 0.5, unit: "Stk" },
-      { name: "Gemüsebrühe", amount: 300, unit: "ml" },
-      { name: "Kreuzkümmel", amount: 0.5, unit: "TL" },
-      { name: "Zwiebel", amount: 0.3, unit: "Stk" },
-    ],
-    steps: [
-      "Zwiebel und Karotte andünsten.",
-      "Linsen und Brühe zugeben, 20 Min köcheln.",
-      "Mit Kreuzkümmel abschmecken, ggf. pürieren.",
-    ],
-  },
-  {
-    id: "va3", category: "vegan", title: "Sesam-Tofu-Nudeln",
-    time: 25, freezer: false, tags: ["schnell", "protein"],
-    nutrition: { kcal: 560, protein: 29, carbs: 55, fat: 26 },
-    ingredients: [
-      { name: "Tofu", amount: 120, unit: "g" },
-      { name: "Eiernudeln (vegan)", amount: 70, unit: "g" },
-      { name: "Pak Choi", amount: 80, unit: "g" },
-      { name: "Sesamöl", amount: 1, unit: "EL" },
-      { name: "Sojasauce", amount: 1, unit: "EL" },
-    ],
-    steps: [
-      "Nudeln kochen.",
-      "Tofu würfeln und knusprig anbraten, Pak Choi mitdünsten.",
-      "Mit Nudeln, Sesamöl und Sojasauce vermengen.",
-    ],
-  },
-  {
-    id: "va4", category: "vegan", title: "Gefüllte Paprika mit Bulgur",
-    time: 45, freezer: true, tags: ["kalorienarm"],
-    nutrition: { kcal: 360, protein: 16, carbs: 70, fat: 4 },
-    ingredients: [
-      { name: "Paprika", amount: 1, unit: "Stk" },
-      { name: "Bulgur", amount: 50, unit: "g" },
-      { name: "Kichererbsen", amount: 100, unit: "g" },
-      { name: "Tomatensauce", amount: 60, unit: "g" },
-      { name: "Petersilie", amount: 3, unit: "g" },
-    ],
-    steps: [
-      "Bulgur quellen lassen, mit Kichererbsen und Tomatensauce mischen.",
-      "Paprika halbieren, entkernen und füllen.",
-      "25 Min bei 200°C backen.",
-    ],
-  },
-  {
-    id: "va5", category: "vegan", title: "Erdnuss-Gemüse-Wok",
-    time: 20, freezer: false, tags: ["schnell", "lowcarb", "kalorienarm"],
-    nutrition: { kcal: 310, protein: 23, carbs: 20, fat: 18 },
-    ingredients: [
-      { name: "Tofu", amount: 100, unit: "g" },
-      { name: "Brokkoli", amount: 100, unit: "g" },
-      { name: "Karotte", amount: 60, unit: "g" },
-      { name: "Erdnussbutter", amount: 1, unit: "EL" },
-      { name: "Sojasauce", amount: 1, unit: "EL" },
-    ],
-    steps: [
-      "Tofu anbraten, Gemüse zugeben und wokken.",
-      "Erdnussbutter mit Sojasauce und etwas Wasser verrühren.",
-      "Sauce unterheben, kurz einkochen lassen.",
-    ],
-  },
-  {
-    id: "va6", category: "vegan", title: "Weiße-Bohnen-Eintopf",
-    time: 35, freezer: true, tags: ["kalorienarm"],
-    nutrition: { kcal: 230, protein: 12, carbs: 43, fat: 1 },
-    ingredients: [
-      { name: "weiße Bohnen", amount: 120, unit: "g" },
-      { name: "Lauch", amount: 60, unit: "g" },
-      { name: "Karotte", amount: 60, unit: "g" },
-      { name: "Tomaten, gehackt", amount: 100, unit: "g" },
-      { name: "Thymian", amount: 0.5, unit: "TL" },
-    ],
-    steps: [
-      "Lauch und Karotte andünsten.",
-      "Bohnen und Tomaten zugeben, mit Wasser auffüllen.",
-      "20 Min köcheln, mit Thymian würzen.",
-    ],
-  },
-  {
-    id: "va7", category: "vegan", title: "Falafel-Bowl mit Hummus",
-    time: 35, freezer: false, tags: ["kalorienarm"],
-    nutrition: { kcal: 395, protein: 16, carbs: 53, fat: 15 },
-    ingredients: [
-      { name: "Kichererbsen", amount: 100, unit: "g" },
-      { name: "Hummus", amount: 50, unit: "g" },
-      { name: "Bulgur", amount: 30, unit: "g" },
-      { name: "Kirschtomaten", amount: 50, unit: "g" },
-      { name: "Gurke", amount: 0.2, unit: "Stk" },
-      { name: "Olivenöl", amount: 0.5, unit: "EL" },
-    ],
-    steps: [
-      "Bulgur nach Packungsanweisung quellen lassen.",
-      "Kichererbsen mit Gewürzen pürieren, zu Bällchen formen und goldbraun braten oder backen.",
-      "Tomaten und Gurke würfeln, mit Öl anmachen.",
-      "Bulgur, Falafel, Salat und Hummus in einer Bowl anrichten.",
-    ],
-  },
-  {
-    id: "va8", category: "vegan", title: "Teriyaki-Tempeh mit Reis",
-    time: 30, freezer: true, tags: ["schnell", "protein"],
-    nutrition: { kcal: 515, protein: 32, carbs: 70, fat: 14 },
-    ingredients: [
-      { name: "Tempeh", amount: 120, unit: "g" },
-      { name: "Reis", amount: 60, unit: "g" },
-      { name: "Brokkoli", amount: 100, unit: "g" },
-      { name: "Sojasauce", amount: 1, unit: "EL" },
-      { name: "Agavendicksaft", amount: 1, unit: "TL" },
-      { name: "Ingwer", amount: 1, unit: "TL" },
-    ],
-    steps: [
-      "Reis nach Packungsanweisung kochen.",
-      "Tempeh würfeln und knusprig anbraten.",
-      "Brokkoli kurz mitdünsten.",
-      "Sojasauce, Agavendicksaft und Ingwer verrühren, zum Tempeh geben und kurz einkochen.",
-      "Mit Reis servieren.",
-    ],
-  },
-  {
-    id: "va9", category: "vegan", title: "Schwarze-Bohnen-Bowl mit Mais und Avocado",
-    time: 20, freezer: false, tags: ["schnell", "kalorienarm"],
-    nutrition: { kcal: 350, protein: 17, carbs: 55, fat: 9 },
-    ingredients: [
-      { name: "schwarze Bohnen", amount: 150, unit: "g" },
-      { name: "Mais", amount: 60, unit: "g" },
-      { name: "Avocado", amount: 0.3, unit: "Stk" },
-      { name: "Kirschtomaten", amount: 60, unit: "g" },
-      { name: "Limette", amount: 0.5, unit: "Stk" },
-      { name: "Koriander", amount: 3, unit: "g" },
-    ],
-    steps: [
-      "Bohnen und Mais erwärmen oder direkt verwenden.",
-      "Avocado in Scheiben schneiden, Tomaten halbieren.",
-      "Alles in einer Bowl anrichten.",
-      "Mit Limettensaft und Koriander abschmecken.",
-    ],
-  },
+const CAT_DEFS = [
+  { id:"fleisch", label:"Fleisch", colorL:"#C0442B", colorD:"#E8735A", icon:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M14 3c3 0 6 2.5 6 6.5 0 3-2 5-4.5 6.3L9 22l-3-3 6.2-6.5C10.9 11.2 9 8.9 9 6.5 9 4.6 11.3 3 14 3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>' },
+  { id:"fisch", label:"Fisch", colorL:"#1B7F93", colorD:"#3FB4CB", icon:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 12c3-4 8-6 12-4l4-2-1 4 1 4-4-2c-4 2-9 0-12-4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="8.5" cy="10.5" r="0.8" fill="currentColor"/></svg>' },
+  { id:"vegetarisch", label:"Vegetarisch", colorL:"#4E7A2E", colorD:"#82C158", icon:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 21c-5-1-8-5-8-10 4 0 7 1 9 3 1-4 4-6 8-6 0 6-4 10-9 11z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>' },
+  { id:"vegan", label:"Vegan", colorL:"#2F8F5B", colorD:"#4FCB89", icon:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 21V10M12 10c0-4-3-7-7-7 0 4 3 7 7 7zm0 0c0-3.5 2.5-6 6-6-0.2 3.5-2.6 6-6 6z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>' },
 ];
+const TIME_DEFS = [ { id:"30", label:"bis 30 Min" }, { id:"60", label:"bis 60 Min" }, { id:"90", label:"90+ Min" } ];
+const FILTER_DEFS = [
+  { id:"lowcarb", label:"Low Carb", colorL:"#8E5FC7", colorD:"#B08AE0" },
+  { id:"protein", label:"High Protein", colorL:"#4E7A2E", colorD:"#82C158" },
+  { id:"kalorienarm", label:"Kalorienarm", colorL:"#1B7F93", colorD:"#3FB4CB" },
+  { id:"schnell", label:"Schnell", colorL:"#C68A1C", colorD:"#E8B23D" },
+];
+const CAT_MAP = Object.fromEntries(CAT_DEFS.map(d => [d.id, d]));
+const FILTER_MAP = Object.fromEntries(FILTER_DEFS.map(d => [d.id, d]));
 
-</script>
-<script>
-(function(){
-  "use strict";
+const STORE_KEY = "mpq_state_v1";
+const OLD_STORE_KEY = "mealprepquest:plan"; // Speicherformat vor dem Redesign
+const MAX_RESULTS = 6;
 
-  // ---------------- STATE ----------------
-  const state = {
-    diet: new Set(),
-    timeMax: null,
-    days: 5,
-    persons: 2,
-    tags: new Set(),
-    allMatches: [],  // alle Rezepte, die zu den aktuellen Filtern passen
-    pool: [],        // aktuell angezeigte, zufällige Auswahl daraus
-    plan: {},       // recipeId -> batch count
-  };
+const SUN_SVG = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.7"/><path d="M12 2.5v2.5M12 19v2.5M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2.5 12H5M19 12h2.5M4.2 19.8L6 18M18 6l1.8-1.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
+const MOON_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>';
+const SHUFFLE_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M4 4l5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const SNOWFLAKE_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
 
-  const MAX_RESULTS = 6; // wie viele Rezepte gleichzeitig angezeigt werden
+function timeMax(bucket){ return bucket === "30" ? 30 : bucket === "60" ? 60 : Infinity; }
+function fmtAmount(n){ const r = Math.round(n * 10) / 10; return Number.isInteger(r) ? String(r) : String(r).replace(".", ","); }
+function sample(arr, n){ const a = arr.slice(); for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a.slice(0, n); }
+function isSafari(){ const ua = navigator.userAgent; return /^((?!chrome|crios|fxios|android).)*safari/i.test(ua); }
+function softAlpha(hex, theme){ return theme === "light" ? hex + "1a" : hex + "29"; }
+function catColor(catId, theme){ const d = CAT_MAP[catId]; return theme === "light" ? d.colorL : d.colorD; }
+function filterColor(filterId, theme){ const d = FILTER_MAP[filterId]; return theme === "light" ? d.colorL : d.colorD; }
 
-  // ---------------- PERSISTENZ (geplante Gerichte überleben Reload/Neustart) ----------------
-  const STORAGE_KEY = "mealprepquest:plan";
+const state = {
+  theme: "light", view: "form",
+  selCats: [], selTime: null, days: 5, persons: 2, selFilters: [],
+  resultIds: [], expanded: {}, plan: {}, checkedSteps: {},
+  questNo: 100 + Math.floor(Math.random() * 800),
+};
 
-  function savePlanToStorage(){
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ plan: state.plan, persons: state.persons }));
-    } catch (e) {
-      // z.B. privater Browser-Modus ohne localStorage-Zugriff – dann bleibt es bei In-Memory
-    }
-  }
-
-  function loadPlanFromStorage(){
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const data = JSON.parse(raw);
-      if (data && typeof data.plan === "object" && data.plan !== null){
-        const cleaned = {};
-        Object.keys(data.plan).forEach(id => {
-          if (RECIPES.some(r => r.id === id) && data.plan[id] > 0) cleaned[id] = data.plan[id];
-        });
-        state.plan = cleaned;
+function loadPersisted(){
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) {
+      const saved = JSON.parse(raw);
+      if (saved.theme === "light" || saved.theme === "dark") state.theme = saved.theme;
+      if (saved.plan && typeof saved.plan === "object") state.plan = saved.plan;
+      if (saved.checkedSteps && typeof saved.checkedSteps === "object") state.checkedSteps = saved.checkedSteps;
+      if (typeof saved.persons === "number" && saved.persons >= 1 && saved.persons <= 8) state.persons = saved.persons;
+    } else {
+      // Einmalige Migration aus der Speicherung von vor dem Redesign.
+      const oldRaw = localStorage.getItem(OLD_STORE_KEY);
+      if (oldRaw) {
+        const old = JSON.parse(oldRaw);
+        if (old.plan && typeof old.plan === "object") state.plan = old.plan;
+        if (typeof old.persons === "number") state.persons = old.persons;
       }
-      if (typeof data.persons === "number" && data.persons >= 1 && data.persons <= 8){
-        state.persons = data.persons;
-      }
-    } catch (e) {
-      // korrupte/fremde Daten im localStorage einfach ignorieren
     }
+  } catch (e) { /* korrupte/fremde Daten ignorieren */ }
+  if (state.theme !== "light" && state.theme !== "dark") {
+    state.theme = (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
   }
-
-  const TAG_LABELS = {
-    lowcarb: "Low Carb",
-    protein: "High Protein",
-    kalorienarm: "Kalorienarm",
-    schnell: "Schnell",
-  };
-  const TAG_CLASS = {
-    lowcarb: "lowcarb",
-    protein: "protein",
-    kalorienarm: "",
-    schnell: "speed",
-  };
-  const CAT_LABELS = {
-    fleisch: "Fleisch", fisch: "Fisch", vegetarisch: "Vegetarisch", vegan: "Vegan",
-  };
-
-  // ---------------- ELEMENTS ----------------
-  const dietRow = document.getElementById("diet-row");
-  const timeRow = document.getElementById("time-row");
-  const tagRow = document.getElementById("tag-row");
-  const submitBtn = document.getElementById("submit-btn");
-  const summaryLine = document.getElementById("summary-line");
-  const viewForm = document.getElementById("view-form");
-  const viewResults = document.getElementById("view-results");
-  const viewCooklist = document.getElementById("view-cooklist");
-  const cooklistBody = document.getElementById("cooklist-body");
-  const cooklistBackBtn = document.getElementById("cooklist-back-btn");
-  const cooklistToggle = document.getElementById("cooklist-toggle");
-  const cooklistBadge = document.getElementById("cooklist-badge");
-  const backBtn = document.getElementById("back-btn");
-  const shuffleBtn = document.getElementById("shuffle-btn");
-  const recipeGrid = document.getElementById("recipe-grid");
-  const emptyState = document.getElementById("empty-state");
-  const resultsTitle = document.getElementById("results-title");
-  const portionsCollectedEl = document.getElementById("portions-collected");
-  const portionsNeededEl = document.getElementById("portions-needed");
-  const portionsFillEl = document.getElementById("portions-fill");
-  const drawerToggle = document.getElementById("drawer-toggle");
-  const drawerBadge = document.getElementById("drawer-badge");
-  const drawer = document.getElementById("drawer");
-  const drawerBody = document.getElementById("drawer-body");
-  const drawerClose = document.getElementById("drawer-close");
-  const scrim = document.getElementById("scrim");
-  const clearPlanBtn = document.getElementById("clear-plan-btn");
-  const exportIcsBtn = document.getElementById("export-ics-btn");
-  const copyListBtn = document.getElementById("copy-list-btn");
-  const ticketNumber = document.getElementById("ticket-number");
-
-  ticketNumber.textContent = String(100 + Math.floor(Math.random() * 800));
-
-  // ---------------- HELPERS ----------------
-  function fmtAmount(n){
-    const rounded = Math.round(n * 10) / 10;
-    return rounded % 1 === 0 ? String(rounded) : String(rounded.toFixed(1)).replace(".", ",");
-  }
-
-  function shuffleArray(arr){
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--){
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  }
-
-  function dietLabel(){
-    return [...state.diet].map(d => CAT_LABELS[d]).join(" + ");
-  }
-
-  function updateSummary(){
-    if (state.diet.size === 0){
-      summaryLine.textContent = "Wähle zuerst mindestens eine Kategorie aus.";
-      submitBtn.disabled = true;
-      return;
-    }
-    if (!state.timeMax){
-      summaryLine.textContent = "Wie viel Zeit hast du zum Kochen?";
-      submitBtn.disabled = true;
-      return;
-    }
-    submitBtn.disabled = false;
-    summaryLine.innerHTML = `<b>${dietLabel()}</b> · für <b>${state.days}</b> Tage · <b>${state.persons}</b> ${state.persons === 1 ? "Person" : "Personen"}`;
-  }
-
-  // ---------------- QUESTIONNAIRE INTERACTIONS ----------------
-  function wireChoiceRow(row, onChange){
-    row.addEventListener("click", (e) => {
-      const btn = e.target.closest("button");
-      if (!btn) return;
-      const multi = row.dataset.multi === "true";
-      if (multi){
-        btn.classList.toggle("selected");
-      } else {
-        [...row.children].forEach(c => c.classList.remove("selected"));
-        btn.classList.add("selected");
-      }
-      onChange(btn, multi);
-    });
-  }
-
-  wireChoiceRow(dietRow, (btn) => {
-    const v = btn.dataset.value;
-    if (state.diet.has(v)) state.diet.delete(v); else state.diet.add(v);
-    updateSummary();
+  // Verwaiste Einträge (Rezept existiert nicht mehr) entfernen.
+  const cleaned = {};
+  Object.keys(state.plan).forEach(id => {
+    if (RECIPES.some(r => r.id === id) && state.plan[id] > 0) cleaned[id] = state.plan[id];
   });
+  state.plan = cleaned;
+}
 
-  wireChoiceRow(timeRow, (btn) => {
-    state.timeMax = parseInt(btn.dataset.value, 10);
-    updateSummary();
-  });
+function persist(){
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify({
+      plan: state.plan, checkedSteps: state.checkedSteps, theme: state.theme, persons: state.persons,
+    }));
+  } catch (e) { /* z.B. privater Browser-Modus ohne localStorage-Zugriff */ }
+}
 
-  wireChoiceRow(tagRow, (btn) => {
-    const v = btn.dataset.value;
-    if (state.tags.has(v)) state.tags.delete(v); else state.tags.add(v);
-  });
+function getPlannedList(){
+  return Object.entries(state.plan)
+    .filter(([, n]) => n > 0)
+    .map(([id, n]) => ({ recipe: RECIPES.find(r => r.id === id), batches: n }))
+    .filter(x => x.recipe);
+}
 
-  document.querySelectorAll(".stepper").forEach(stepper => {
-    const target = stepper.dataset.target;
-    const valEl = document.getElementById(target + "-val");
-    const min = target === "days" ? 1 : 1;
-    const max = target === "days" ? 14 : 8;
-    stepper.addEventListener("click", (e) => {
-      const btn = e.target.closest("button");
-      if (!btn) return;
-      const dir = parseInt(btn.dataset.dir, 10);
-      let val = state[target] + dir;
-      val = Math.max(min, Math.min(max, val));
-      state[target] = val;
-      valEl.textContent = val;
-      updateSummary();
-      if (target === "persons") savePlanToStorage();
+function buildAggregate(){
+  const persons = state.persons;
+  const map = {};
+  getPlannedList().forEach(({ recipe, batches }) => {
+    recipe.ingredients.forEach(ing => {
+      const key = ing.name + "|" + ing.unit;
+      if (!map[key]) map[key] = { name: ing.name, unit: ing.unit, total: 0 };
+      map[key].total += ing.amount * persons * batches;
     });
   });
+  return Object.values(map).sort((a, b) => a.name.localeCompare(b.name, "de"));
+}
 
-  // ---------------- VIEW SWITCHING ----------------
-  const VIEWS = { form: viewForm, results: viewResults, cooklist: viewCooklist };
-  let lastMainView = "form"; // wohin der Kochlisten-Zurück-Button führt
+function getFilteredPool(){
+  return RECIPES.filter(r =>
+    state.selCats.includes(r.category) &&
+    r.time <= timeMax(state.selTime) &&
+    state.selFilters.every(f => r.tags.includes(f))
+  );
+}
 
-  function showView(name){
-    Object.values(VIEWS).forEach(v => v.classList.remove("active"));
-    VIEWS[name].classList.add("active");
-    if (name === "form" || name === "results") lastMainView = name;
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
+// ---------------- ACTIONS ----------------
+function toggleTheme(){ state.theme = state.theme === "light" ? "dark" : "light"; persist(); render(); }
+function toggleCat(id){ state.selCats = state.selCats.includes(id) ? state.selCats.filter(x => x !== id) : [...state.selCats, id]; render(); }
+function selectTime(id){ state.selTime = id; render(); }
+function toggleFilter(id){ state.selFilters = state.selFilters.includes(id) ? state.selFilters.filter(x => x !== id) : [...state.selFilters, id]; render(); }
+function adjustDays(delta){ state.days = Math.max(1, Math.min(14, state.days + delta)); render(); }
+function adjustPersons(delta){ state.persons = Math.max(1, Math.min(8, state.persons + delta)); persist(); render(); }
+function toggleExpand(id){ state.expanded[id] = !state.expanded[id]; render(); }
+function goForm(){ state.view = "form"; render(); }
+function goResults(){ state.resultIds = sample(getFilteredPool(), MAX_RESULTS).map(r => r.id); state.view = "results"; render(); }
+function shuffle(){ state.resultIds = sample(getFilteredPool(), MAX_RESULTS).map(r => r.id); render(); }
+function goShopping(){ state.view = "shopping"; render(); }
+function goCooklist(){ state.view = "cooklist"; render(); }
+function goBackFromSub(){ state.view = state.resultIds.length ? "results" : "form"; render(); }
+function adjustPlan(id, delta){
+  const cur = state.plan[id] || 0;
+  const next = Math.max(0, cur + delta);
+  if (next === 0) delete state.plan[id]; else state.plan[id] = next;
+  persist(); render();
+}
+function toggleStep(key){ state.checkedSteps[key] = !state.checkedSteps[key]; persist(); render(); }
+function clearPlan(){
+  if (!window.confirm("Wochenplan wirklich leeren?")) return;
+  state.plan = {}; state.checkedSteps = {};
+  persist(); render();
+}
 
-  submitBtn.addEventListener("click", () => {
-    buildPool();
-    renderResults();
-    showView("results");
+let toastTimer = null;
+function showToast(msg){
+  toastEl.textContent = msg;
+  toastEl.style.display = "block";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toastEl.style.display = "none"; }, 2200);
+}
+
+function icsEscape(text){ return String(text).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,"); }
+
+function exportReminders(){
+  const ing = buildAggregate();
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//TheMealPrepQuest//DE"];
+  ing.forEach((it, i) => {
+    lines.push(
+      "BEGIN:VTODO",
+      "UID:mpq-" + Date.now() + "-" + i + "@themealprepquest",
+      "SUMMARY:" + icsEscape(fmtAmount(it.total) + " " + it.unit + " " + it.name),
+      "STATUS:NEEDS-ACTION",
+      "END:VTODO"
+    );
   });
-
-  backBtn.addEventListener("click", () => showView("form"));
-
-  cooklistToggle.addEventListener("click", () => {
-    renderCooklist();
-    showView("cooklist");
-  });
-
-  cooklistBackBtn.addEventListener("click", () => showView(lastMainView));
-
-  shuffleBtn.addEventListener("click", () => {
-    state.pool = shuffleArray(state.allMatches).slice(0, MAX_RESULTS);
-    renderRecipeCards();
-  });
-
-  // ---------------- POOL / FILTERING ----------------
-  function buildPool(){
-    let matches = RECIPES.filter(r => state.diet.has(r.category) && r.time <= state.timeMax);
-    if (state.tags.size > 0){
-      matches = matches.filter(r => [...state.tags].every(t => r.tags.includes(t)));
-    }
-    state.allMatches = matches;
-    state.pool = shuffleArray(matches).slice(0, MAX_RESULTS);
+  lines.push("END:VCALENDAR");
+  const ics = lines.join("\r\n");
+  if (isSafari()) {
+    // Safari (iOS & macOS) kann Blob-Downloads von .ics oft nicht öffnen –
+    // stattdessen direkt zur data-URI navigieren, damit Safari den
+    // text/calendar-Inhalt selbst erkennt und den Import anbietet.
+    window.location.href = "data:text/calendar;charset=utf-8," + encodeURIComponent(ics);
+    return;
   }
-
-  // ---------------- RESULTS RENDERING ----------------
-  function renderResults(){
-    resultsTitle.textContent = `${dietLabel()} · ${state.days} Tage · ${state.persons} ${state.persons === 1 ? "Person" : "Personen"}`;
-    portionsNeededEl.textContent = state.days * state.persons;
-    renderRecipeCards();
-    updatePortionsTrack();
-  }
-
-  function renderRecipeCards(){
-    recipeGrid.innerHTML = "";
-    if (state.pool.length === 0){
-      emptyState.style.display = "block";
-      return;
-    }
-    emptyState.style.display = "none";
-
-    state.pool.forEach(recipe => {
-      const card = document.createElement("article");
-      card.className = "recipe-card";
-
-      const tagsHtml = recipe.tags.map(t =>
-        `<span class="tag-badge ${TAG_CLASS[t] || ""}">${TAG_LABELS[t]}</span>`
-      ).join("");
-
-      const ingredientsHtml = recipe.ingredients.map(ing => {
-        const scaled = ing.amount * state.persons;
-        return `<li>${fmtAmount(scaled)} ${ing.unit} ${ing.name}</li>`;
-      }).join("");
-
-      const stepsHtml = recipe.steps.map(s => `<li>${s}</li>`).join("");
-
-      const batchCount = state.plan[recipe.id] || 0;
-
-      card.innerHTML = `
-        <div class="recipe-cat">${CAT_LABELS[recipe.category]} · ${recipe.time} Min</div>
-        <h3 class="recipe-title">${recipe.title}</h3>
-        <div class="recipe-meta">
-          <span>⏱ ${recipe.time} Min</span>
-          <span>👥 ${state.persons} ${state.persons === 1 ? "Portion" : "Portionen"}</span>
-        </div>
-        <div class="recipe-tags">${tagsHtml}</div>
-        <details class="recipe-ingredients">
-          <summary>Zutaten & Zubereitung</summary>
-          <ul>${ingredientsHtml}</ul>
-          <ol class="recipe-steps">${stepsHtml}</ol>
-        </details>
-        <div class="recipe-foot">
-          <span class="freezer-note">${recipe.freezer ? "❄️ einfrierbar" : "🍽 frisch genießen"}</span>
-          <div class="add-batch">
-            <span>Portionen</span>
-            <button class="minus" aria-label="Portion entfernen">−</button>
-            <span class="count">${batchCount}</span>
-            <button class="plus" aria-label="Portion hinzufügen">+</button>
-          </div>
-        </div>
-      `;
-
-      card.querySelector(".plus").addEventListener("click", () => {
-        state.plan[recipe.id] = (state.plan[recipe.id] || 0) + 1;
-        card.querySelector(".count").textContent = state.plan[recipe.id];
-        updatePortionsTrack();
-        renderDrawer();
-      });
-      card.querySelector(".minus").addEventListener("click", () => {
-        const current = state.plan[recipe.id] || 0;
-        if (current <= 0) return;
-        state.plan[recipe.id] = current - 1;
-        card.querySelector(".count").textContent = state.plan[recipe.id];
-        updatePortionsTrack();
-        renderDrawer();
-      });
-
-      recipeGrid.appendChild(card);
-    });
-  }
-
-  // ---------------- PORTIONS TRACK ----------------
-  function totalBatches(){
-    return Object.values(state.plan).reduce((sum, n) => sum + n, 0);
-  }
-
-  function updatePortionsTrack(){
-    const collected = totalBatches() * state.persons;
-    const needed = state.days * state.persons;
-    portionsCollectedEl.textContent = collected;
-    portionsNeededEl.textContent = needed;
-    const pct = needed > 0 ? Math.min(100, (collected / needed) * 100) : 0;
-    portionsFillEl.style.width = pct + "%";
-    drawerBadge.textContent = collected;
-    savePlanToStorage();
-    updateCooklistToggle();
-  }
-
-  function updateCooklistToggle(){
-    const plannedDishes = Object.values(state.plan).filter(n => n > 0).length;
-    cooklistBadge.textContent = plannedDishes;
-    cooklistToggle.style.display = plannedDishes > 0 ? "flex" : "none";
-  }
-
-  function renderCooklist(){
-    const activeIds = Object.keys(state.plan).filter(id => state.plan[id] > 0);
-    if (activeIds.length === 0){
-      cooklistBody.innerHTML = `
-        <div class="empty-state">
-          <h3>Noch nichts geplant</h3>
-          <p>Füg über „+" an einer Rezeptkarte Portionen hinzu, dann erscheinen deine Gerichte hier mit Zutaten & Zubereitung.</p>
-        </div>`;
-      return;
-    }
-    cooklistBody.innerHTML = activeIds.map(id => {
-      const recipe = RECIPES.find(r => r.id === id);
-      const batches = state.plan[id];
-      const ingredientsHtml = recipe.ingredients.map(ing => {
-        const scaled = ing.amount * state.persons;
-        return `<li>${fmtAmount(scaled)} ${ing.unit} ${ing.name}</li>`;
-      }).join("");
-      const stepsHtml = recipe.steps.map((s, i) => `
-        <li>
-          <label class="cooklist-step">
-            <input type="checkbox">
-            <span>${i + 1}. ${s}</span>
-          </label>
-        </li>`).join("");
-      return `
-        <article class="cooklist-item">
-          <div class="cooklist-item-head">
-            <h3>${recipe.title}</h3>
-            <span class="cooklist-batches">${batches}× zubereiten · ${recipe.time} Min · ${state.persons} ${state.persons === 1 ? "Portion" : "Portionen"} pro Mal</span>
-          </div>
-          <div class="cooklist-cols">
-            <div>
-              <h4>Zutaten</h4>
-              <ul>${ingredientsHtml}</ul>
-            </div>
-            <div>
-              <h4>Zubereitung</h4>
-              <ol class="cooklist-steps">${stepsHtml}</ol>
-            </div>
-          </div>
-        </article>`;
-    }).join("");
-  }
-
-  // ---------------- SHOPPING DRAWER ----------------
-  function openDrawer(){ drawer.classList.add("open"); scrim.classList.add("open"); }
-  function closeDrawer(){ drawer.classList.remove("open"); scrim.classList.remove("open"); }
-  drawerToggle.addEventListener("click", () => { renderDrawer(); openDrawer(); });
-  drawerClose.addEventListener("click", closeDrawer);
-  scrim.addEventListener("click", closeDrawer);
-  clearPlanBtn.addEventListener("click", () => {
-    state.plan = {};
-    updatePortionsTrack();
-    renderRecipeCards();
-    renderDrawer();
-  });
-
-  function buildAggregate(){
-    const activeRecipeIds = Object.keys(state.plan).filter(id => state.plan[id] > 0);
-    const aggregate = {}; // key: "name|unit" -> amount
-    activeRecipeIds.forEach(id => {
-      const recipe = RECIPES.find(r => r.id === id);
-      const batches = state.plan[id];
-      recipe.ingredients.forEach(ing => {
-        const key = ing.name + "|" + ing.unit;
-        const amount = ing.amount * state.persons * batches;
-        aggregate[key] = (aggregate[key] || 0) + amount;
-      });
-    });
-    return { activeRecipeIds, aggregate };
-  }
-
-  function renderDrawer(){
-    const { activeRecipeIds, aggregate } = buildAggregate();
-    if (activeRecipeIds.length === 0){
-      drawerBody.innerHTML = `<p class="drawer-empty">Noch nichts geplant. Füg über „+“ an einer Rezeptkarte Portionen hinzu.</p>`;
-      exportIcsBtn.disabled = true;
-      copyListBtn.disabled = true;
-      return;
-    }
-    exportIcsBtn.disabled = false;
-    copyListBtn.disabled = false;
-
-    let html = `<h4>Zutaten gesamt</h4>`;
-    Object.keys(aggregate).sort().forEach(key => {
-      const [name, unit] = key.split("|");
-      html += `<div class="drawer-item"><span>${name}</span><span>${fmtAmount(aggregate[key])} ${unit}</span></div>`;
-    });
-
-    html += `<h4>Geplante Rezepte</h4>`;
-    activeRecipeIds.forEach(id => {
-      const recipe = RECIPES.find(r => r.id === id);
-      html += `<div class="drawer-item"><span>${recipe.title}</span><span>${state.plan[id]}×</span></div>`;
-    });
-
-    drawerBody.innerHTML = html;
-  }
-
-  // ---------------- EXPORT: APPLE REMINDERS (.ics) ----------------
-  function icsEscape(text){
-    return String(text).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,");
-  }
-
-  function buildIcsFile(){
-    const { aggregate } = buildAggregate();
-    const now = new Date();
-    const stamp = now.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
-    const lines = [
-      "BEGIN:VCALENDAR",
-      "VERSION:2.0",
-      "PRODID:-//TheMealPrepQuest//Einkaufsliste//DE",
-    ];
-    Object.keys(aggregate).sort().forEach((key, i) => {
-      const [name, unit] = key.split("|");
-      const summary = `${fmtAmount(aggregate[key])} ${unit} ${name}`.trim();
-      lines.push(
-        "BEGIN:VTODO",
-        `UID:mealprepquest-${stamp}-${i}@themealprepquest`,
-        `DTSTAMP:${stamp}`,
-        `SUMMARY:${icsEscape(summary)}`,
-        "STATUS:NEEDS-ACTION",
-        "END:VTODO"
-      );
-    });
-    lines.push("END:VCALENDAR");
-    return lines.join("\r\n");
-  }
-
-  function isSafari(){
-    const ua = navigator.userAgent;
-    return /^((?!chrome|crios|fxios|android).)*safari/i.test(ua);
-  }
-
-  function downloadIcs(){
-    const ics = buildIcsFile();
-    if (isSafari()) {
-      // Safari (iOS & macOS) kann Blob-Downloads mit .ics oft nicht öffnen
-      // ("Safari kann die Datei nicht laden"). Stattdessen direkt zur
-      // data-URI navigieren – so erkennt Safari text/calendar selbst und
-      // bietet den nativen Import in Erinnerungen/Kalender an.
-      window.location.href = "data:text/calendar;charset=utf-8," + encodeURIComponent(ics);
-      return;
-    }
+  try {
     const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
-    a.download = "einkaufsliste.ics";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    a.href = url; a.download = "einkaufsliste.ics";
+    document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
+    showToast("Als Erinnerungen-Datei exportiert.");
+  } catch (e) { showToast("Export nicht möglich."); }
+}
+
+function copyFallback(text){
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand("copy"); showToast("Liste kopiert."); }
+  catch (e) { showToast("Kopieren nicht möglich."); }
+  document.body.removeChild(ta);
+}
+function copyList(){
+  const ing = buildAggregate();
+  const text = ing.map(it => "• " + fmtAmount(it.total) + " " + it.unit + " " + it.name).join("\n");
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => showToast("Liste kopiert.")).catch(() => copyFallback(text));
+  } else {
+    copyFallback(text);
   }
+}
 
-  exportIcsBtn.addEventListener("click", downloadIcs);
+// ---------------- RENDER ----------------
+const themeIcon = document.getElementById("theme-icon");
+const themeColorMeta = document.getElementById("theme-color-meta");
+const roundNoEl = document.getElementById("round-no");
+const navShopping = document.getElementById("nav-shopping");
+const navShoppingCount = document.getElementById("nav-shopping-count");
+const navCooklist = document.getElementById("nav-cooklist");
+const navCooklistCount = document.getElementById("nav-cooklist-count");
+const viewForm = document.getElementById("view-form");
+const viewResults = document.getElementById("view-results");
+const viewShopping = document.getElementById("view-shopping");
+const viewCooklist = document.getElementById("view-cooklist");
+const toastEl = document.getElementById("toast");
 
-  // ---------------- EXPORT: COPY AS PLAIN LIST ----------------
-  function buildPlainList(){
-    const { aggregate } = buildAggregate();
-    return Object.keys(aggregate).sort().map(key => {
-      const [name, unit] = key.split("|");
-      return `${fmtAmount(aggregate[key])} ${unit} ${name}`.trim();
-    }).join("\n");
+function renderHeader(){
+  themeIcon.innerHTML = state.theme === "light" ? SUN_SVG : MOON_SVG;
+  roundNoEl.textContent = state.questNo;
+  const plannedList = getPlannedList();
+  const totalPortions = plannedList.reduce((a, { batches }) => a + batches * state.persons, 0);
+  navShoppingCount.textContent = totalPortions;
+  navCooklistCount.textContent = plannedList.length;
+  navCooklist.style.display = plannedList.length > 0 ? "flex" : "none";
+}
+
+function renderForm(){
+  const t = state.theme;
+  const filled = (state.selCats.length > 0 ? 1 : 0) + (state.selTime ? 1 : 0) + 2;
+  const pct = Math.round((filled / 4) * 100);
+
+  const catChips = CAT_DEFS.map(d => {
+    const active = state.selCats.includes(d.id);
+    const cc = catColor(d.id, t);
+    const fg = active ? (t === "light" ? "#FFFFFF" : "#0B1220") : "var(--text)";
+    return `<button type="button" class="chip-cat" data-action="toggle-cat" data-id="${d.id}"
+      style="background:${active ? cc : "transparent"};border-color:${active ? cc : "var(--border)"};color:${fg}">
+      <span>${d.icon}</span>${d.label}</button>`;
+  }).join("");
+
+  const timeChips = TIME_DEFS.map(d => {
+    const active = state.selTime === d.id;
+    return `<button type="button" class="chip-time" data-action="select-time" data-id="${d.id}"
+      style="background:${active ? "var(--accent)" : "transparent"};border-color:${active ? "var(--accent)" : "var(--border)"};color:${active ? "var(--accent-contrast)" : "var(--text)"}">${d.label}</button>`;
+  }).join("");
+
+  const filterChips = FILTER_DEFS.map(d => {
+    const active = state.selFilters.includes(d.id);
+    const fc = filterColor(d.id, t);
+    return `<button type="button" class="chip-filter" data-action="toggle-filter" data-id="${d.id}"
+      style="background:${active ? softAlpha(fc, t) : "transparent"};border-color:${active ? fc : "var(--border)"};color:${active ? fc : "var(--text-secondary)"}">${d.label}</button>`;
+  }).join("");
+
+  const catLabels = CAT_DEFS.filter(d => state.selCats.includes(d.id)).map(d => d.label);
+  const timeDef = TIME_DEFS.find(d => d.id === state.selTime);
+  const filterLabels = FILTER_DEFS.filter(d => state.selFilters.includes(d.id)).map(d => d.label);
+  let summaryText;
+  if (catLabels.length === 0) summaryText = "Wähle zuerst eine Kategorie aus.";
+  else if (!timeDef) summaryText = catLabels.join(", ") + " · noch keine Zeitangabe.";
+  else summaryText = catLabels.join(", ") + " · " + timeDef.label + " · " + state.days + " Tage für " + state.persons + " Personen → " + (state.days * state.persons) + " Portionen" + (filterLabels.length ? " · " + filterLabels.join(", ") : "");
+
+  const ctaDisabled = catLabels.length === 0 || !timeDef;
+
+  viewForm.innerHTML = `
+    <div class="form-progress">
+      <div class="form-progress-track"><div class="form-progress-fill" style="width:${pct}%"></div></div>
+      <div class="form-progress-label">${filled} von 4 Angaben</div>
+    </div>
+    <div class="form-grid">
+      <div class="summary-card">
+        <h4>Deine Auswahl</h4>
+        <p>${summaryText}</p>
+      </div>
+      <div class="form-card">
+        <h2>Was wird gekocht?</h2>
+        <div class="lede">Vier kurze Angaben – dann bekommst du passende Rezepte für dein Meal Prep.</div>
+        <div class="field-group">
+          <div>
+            <div class="field-label-row"><div class="field-num">1</div><div class="label">Worauf hast du Lust?</div><div class="hint">(Mehrfachauswahl)</div></div>
+            <div class="chip-row">${catChips}</div>
+          </div>
+          <div>
+            <div class="field-label-row"><div class="field-num">2</div><div class="label">Zeit pro Kochsession?</div></div>
+            <div class="chip-row">${timeChips}</div>
+          </div>
+          <div class="stepper-row">
+            <div>
+              <div class="field-label-row"><div class="field-num">3</div><div class="label">Für wie viele Tage?</div></div>
+              <div class="stepper">
+                <button type="button" data-action="adjust-days" data-delta="-1" ${state.days <= 1 ? "disabled" : ""} style="opacity:${state.days <= 1 ? 0.4 : 1}">−</button>
+                <span class="val">${state.days}</span>
+                <button type="button" data-action="adjust-days" data-delta="1" ${state.days >= 14 ? "disabled" : ""} style="opacity:${state.days >= 14 ? 0.4 : 1}">+</button>
+                <span class="unit">Tage</span>
+              </div>
+            </div>
+            <div>
+              <div class="field-label-row"><div class="field-num">4</div><div class="label">Für wie viele Personen?</div></div>
+              <div class="stepper">
+                <button type="button" data-action="adjust-persons" data-delta="-1" ${state.persons <= 1 ? "disabled" : ""} style="opacity:${state.persons <= 1 ? 0.4 : 1}">−</button>
+                <span class="val">${state.persons}</span>
+                <button type="button" data-action="adjust-persons" data-delta="1" ${state.persons >= 8 ? "disabled" : ""} style="opacity:${state.persons >= 8 ? 0.4 : 1}">+</button>
+                <span class="unit">Personen</span>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="field-label-row"><div class="field-num optional">5</div><div class="label">Noch etwas Bestimmtes?</div><div class="hint">(optional)</div></div>
+            <div class="chip-row">${filterChips}</div>
+          </div>
+        </div>
+        <div class="form-footer">
+          <div class="hint">${ctaDisabled ? "Kategorie und Zeit sind Pflichtangaben." : "Bereit für deine Vorschläge."}</div>
+          <button type="button" class="btn-cta" data-action="go-results" ${ctaDisabled ? "disabled" : ""}
+            style="background:${ctaDisabled ? "var(--surface-muted)" : "var(--accent)"};color:${ctaDisabled ? "var(--text-tertiary)" : "var(--accent-contrast)"};opacity:${ctaDisabled ? 0.7 : 1};box-shadow:${ctaDisabled ? "none" : "0 8px 20px -8px var(--accent-soft)"}">Rezepte finden →</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderResultsView(){
+  const t = state.theme;
+  const plannedList = getPlannedList();
+  const totalPortions = plannedList.reduce((a, { batches }) => a + batches * state.persons, 0);
+  const portionsNeeded = state.days * state.persons;
+  const portionsPct = portionsNeeded ? Math.min(100, Math.round((totalPortions / portionsNeeded) * 100)) : 0;
+  const catLabels = CAT_DEFS.filter(d => state.selCats.includes(d.id)).map(d => d.label);
+  const comboText = catLabels.join(", ") + " · " + state.days + " Tage · " + state.persons + " Personen";
+
+  const cards = state.resultIds.map(id => {
+    const r = RECIPES.find(x => x.id === id);
+    if (!r) return "";
+    const cd = CAT_MAP[r.category];
+    const cc = catColor(r.category, t);
+    const expanded = !!state.expanded[id];
+    const batches = state.plan[id] || 0;
+    const tagsHtml = r.tags.map(tag => {
+      const fd = FILTER_MAP[tag]; const fc = filterColor(tag, t);
+      return `<span class="tag-badge" style="background:${softAlpha(fc, t)};color:${fc}">${fd.label}</span>`;
+    }).join("");
+    const detailHtml = expanded ? `
+      <div class="recipe-detail">
+        <h5>Zutaten · ${state.persons} Personen</h5>
+        <ul>${r.ingredients.map(ing => `<li>${fmtAmount(ing.amount * state.persons)} ${ing.unit} ${ing.name}</li>`).join("")}</ul>
+        <h5>Zubereitung</h5>
+        <ol>${r.steps.map(s => `<li>${s}</li>`).join("")}</ol>
+      </div>` : "";
+    return `
+      <div class="recipe-card">
+        <div class="recipe-card-top">
+          <div class="recipe-cat" style="color:${cc}">${cd.label}</div>
+          <div class="recipe-time">${r.time} Min</div>
+        </div>
+        <div class="recipe-title">${r.title}</div>
+        <div class="recipe-tags">${tagsHtml}</div>
+        <button type="button" class="expand-btn" data-action="toggle-expand" data-id="${id}">${expanded ? "Zutaten & Zubereitung ausblenden" : "Zutaten & Zubereitung anzeigen"}</button>
+        ${detailHtml}
+        <div style="flex:1"></div>
+        <div class="recipe-foot">
+          <div class="freezer-note">${SNOWFLAKE_SVG}${r.freezer ? "Einfrierbar" : "Frisch genießen"}</div>
+          <div class="batch-ctl">
+            <button type="button" class="minus" data-action="adjust-plan" data-id="${id}" data-delta="-1" ${batches <= 0 ? "disabled" : ""} style="opacity:${batches <= 0 ? 0.4 : 1}">−</button>
+            <span class="batch-count">${batches}</span>
+            <button type="button" class="plus" data-action="adjust-plan" data-id="${id}" data-delta="1">+</button>
+          </div>
+        </div>
+      </div>`;
+  }).join("");
+
+  const hasResults = state.resultIds.length > 0;
+
+  viewResults.innerHTML = `
+    <button type="button" class="back-link" data-action="go-form">← Angaben ändern</button>
+    <div class="results-head">
+      <div>
+        <h2 class="view-title">Deine Vorschläge</h2>
+        <div class="combo-text">${comboText}</div>
+        <div class="portions-line"><b>${totalPortions}</b> von ${portionsNeeded} Portionen geplant</div>
+        <div class="portions-track"><div class="portions-fill" style="width:${portionsPct}%"></div></div>
+      </div>
+      <button type="button" class="btn-ghost" data-action="shuffle">${SHUFFLE_SVG}Andere Vorschläge</button>
+    </div>
+    ${hasResults ? `<div class="recipe-grid">${cards}</div>` : `
+      <div class="empty-state">
+        <h3>Keine Treffer</h3>
+        <p>Mit dieser Kombination ist die Rezeptbox gerade leer. Versuch's mit weniger Filtern.</p>
+      </div>`}
+  `;
+}
+
+function renderShoppingView(){
+  const t = state.theme;
+  const plannedList = getPlannedList();
+  const totalPortions = plannedList.reduce((a, { batches }) => a + batches * state.persons, 0);
+  const hasPlan = plannedList.length > 0;
+  const ing = buildAggregate();
+
+  const ingredientsHtml = ing.map(it => `
+    <div class="shopping-item"><span>${it.name}</span><span class="amt">${fmtAmount(it.total)} ${it.unit}</span></div>
+  `).join("");
+
+  const recipesHtml = plannedList.map(({ recipe, batches }) => {
+    const cc = catColor(recipe.category, t);
+    return `<div class="shopping-recipe-item">
+      <span class="dot" style="background:${cc}"></span>
+      <span style="flex:1">${recipe.title}</span>
+      <span class="batch-pill" style="background:${softAlpha(cc, t)};color:${cc}">${batches}×</span>
+    </div>`;
+  }).join("");
+
+  viewShopping.innerHTML = `
+    <button type="button" class="back-link" data-action="go-back-sub">← Zurück</button>
+    <h2 class="view-title">Einkaufsliste</h2>
+    <div class="sub-subtitle">${hasPlan ? plannedList.length + " Gerichte · " + totalPortions + " Portionen geplant" : "Noch keine Gerichte geplant."}</div>
+    ${hasPlan ? `
+      <div class="shopping-grid">
+        <div class="shopping-panel"><h5>Zutaten</h5><div>${ingredientsHtml}</div></div>
+        <div class="shopping-panel"><h5>Geplante Gerichte</h5><div>${recipesHtml}</div></div>
+      </div>
+      <div class="shopping-actions">
+        <button type="button" class="btn-accent" data-action="export-reminders">Als Erinnerungen exportieren</button>
+        <button type="button" class="btn-outline" data-action="copy-list">Liste kopieren</button>
+        <button type="button" class="btn-outline muted" data-action="clear-plan">Wochenplan leeren</button>
+      </div>
+    ` : `
+      <div class="empty-state">
+        <h3>Noch nichts geplant</h3>
+        <p>Füg über „+" an einer Rezeptkarte Portionen zum Wochenplan hinzu.</p>
+      </div>
+    `}
+  `;
+}
+
+function renderCooklistView(){
+  const t = state.theme;
+  const plannedList = getPlannedList();
+  const hasPlan = plannedList.length > 0;
+
+  const itemsHtml = plannedList.map(({ recipe, batches }) => {
+    const cd = CAT_MAP[recipe.category];
+    const cc = catColor(recipe.category, t);
+    const ingredientsHtml = recipe.ingredients.map(ing => `<li>${fmtAmount(ing.amount * state.persons * batches)} ${ing.unit} ${ing.name}</li>`).join("");
+    const stepsHtml = recipe.steps.map((text, idx) => {
+      const key = recipe.id + ":" + idx;
+      const checked = !!state.checkedSteps[key];
+      return `<label class="cooklist-step${checked ? " checked" : ""}">
+        <input type="checkbox" data-action="toggle-step" data-key="${key}" ${checked ? "checked" : ""}>
+        <span>${text}</span>
+      </label>`;
+    }).join("");
+    return `
+      <div class="cooklist-item" style="border-top-color:${cc}">
+        <div class="cooklist-item-head">
+          <div>
+            <div class="cat" style="color:${cc}">${cd.label}</div>
+            <h3>${recipe.title}</h3>
+          </div>
+          <div class="cooklist-batches" style="color:${cc};background:${softAlpha(cc, t)}">${batches}× zubereiten</div>
+        </div>
+        <div class="cooklist-cols">
+          <div><h5>Zutaten</h5><ul>${ingredientsHtml}</ul></div>
+          <div><h5>Zubereitung</h5><div class="cooklist-steps">${stepsHtml}</div></div>
+        </div>
+      </div>`;
+  }).join("");
+
+  viewCooklist.innerHTML = `
+    <button type="button" class="back-link" data-action="go-back-sub">← Zurück</button>
+    <h2 class="view-title">Kochliste</h2>
+    <div class="sub-subtitle" style="max-width:60ch">Bleibt gespeichert, bis du „Wochenplan leeren" antippst – auch nach dem Einkaufen, bis du tatsächlich kochst.</div>
+    ${hasPlan ? `<div class="cooklist-list">${itemsHtml}</div>` : `
+      <div class="empty-state">
+        <h3>Noch keine Kochliste</h3>
+        <p>Plane zuerst Gerichte auf dem Ergebnis-Screen ein.</p>
+      </div>`}
+  `;
+}
+
+function render(){
+  document.documentElement.setAttribute("data-theme", state.theme);
+  themeColorMeta.setAttribute("content", state.theme === "dark" ? "#10131A" : "#F7F5EF");
+  renderHeader();
+  viewForm.classList.toggle("active", state.view === "form");
+  viewResults.classList.toggle("active", state.view === "results");
+  viewShopping.classList.toggle("active", state.view === "shopping");
+  viewCooklist.classList.toggle("active", state.view === "cooklist");
+  if (state.view === "form") renderForm();
+  else if (state.view === "results") renderResultsView();
+  else if (state.view === "shopping") renderShoppingView();
+  else if (state.view === "cooklist") renderCooklistView();
+}
+
+// ---------------- EVENT DELEGATION ----------------
+document.body.addEventListener("click", (e) => {
+  const el = e.target.closest("[data-action]");
+  if (!el) return;
+  const action = el.dataset.action;
+  const id = el.dataset.id;
+  const delta = el.dataset.delta !== undefined ? parseInt(el.dataset.delta, 10) : undefined;
+  switch (action) {
+    case "toggle-theme": toggleTheme(); break;
+    case "toggle-cat": toggleCat(id); break;
+    case "select-time": selectTime(id); break;
+    case "toggle-filter": toggleFilter(id); break;
+    case "adjust-days": adjustDays(delta); break;
+    case "adjust-persons": adjustPersons(delta); break;
+    case "toggle-expand": toggleExpand(id); break;
+    case "go-form": goForm(); break;
+    case "go-results": goResults(); break;
+    case "shuffle": shuffle(); break;
+    case "go-shopping": goShopping(); break;
+    case "go-cooklist": goCooklist(); break;
+    case "go-back-sub": goBackFromSub(); break;
+    case "adjust-plan": adjustPlan(id, delta); break;
+    case "export-reminders": exportReminders(); break;
+    case "copy-list": copyList(); break;
+    case "clear-plan": clearPlan(); break;
   }
+});
+document.body.addEventListener("change", (e) => {
+  const el = e.target.closest('[data-action="toggle-step"]');
+  if (!el) return;
+  toggleStep(el.dataset.key);
+});
 
-  copyListBtn.addEventListener("click", async () => {
-    const text = buildPlainList();
-    const originalLabel = copyListBtn.textContent;
-    try {
-      await navigator.clipboard.writeText(text);
-      copyListBtn.textContent = "Kopiert ✓";
-    } catch (e) {
-      // Fallback for browsers/contexts without Clipboard API
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      ta.style.position = "fixed";
-      ta.style.opacity = "0";
-      document.body.appendChild(ta);
-      ta.select();
-      try { document.execCommand("copy"); copyListBtn.textContent = "Kopiert ✓"; }
-      catch (e2) { copyListBtn.textContent = "Fehlgeschlagen"; }
-      document.body.removeChild(ta);
-    }
-    setTimeout(() => { copyListBtn.textContent = originalLabel; }, 1800);
-  });
-
-  loadPlanFromStorage();
-  document.getElementById("persons-val").textContent = state.persons;
-  updatePortionsTrack();
-  updateSummary();
-})();
-
+loadPersisted();
+render();
 </script>
 </body>
 </html>
