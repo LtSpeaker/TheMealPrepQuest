@@ -64,7 +64,7 @@
     *{ animation-duration: .01ms !important; transition-duration: .01ms !important; }
   }
 
-  .app{ max-width: 1100px; margin: 0 auto; padding: 28px 20px 80px; }
+  .app{ max-width: 1100px; margin: 0 auto; padding: calc(28px + env(safe-area-inset-top)) 20px 80px; }
 
   /* ---------- HEADER ---------- */
   .masthead{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
@@ -139,8 +139,13 @@
   .back-link:hover{ color: var(--accent); }
   .view-title{ font-family: var(--font-display); font-weight:600; font-size:26px; margin:0 0 6px; }
 
-  .results-head{ display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px; margin-bottom:18px; }
+  .results-head{ display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px; margin-bottom:14px; }
   .combo-text{ font-size:13px; color: var(--text-secondary); margin-bottom:8px; }
+  .portions-sticky{
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+    background: var(--bg); padding:10px 0 14px; margin-bottom:18px;
+    border-bottom: 1px solid var(--border);
+  }
   .portions-line{ font-size:12.5px; color: var(--text-secondary); }
   .portions-line b{ color: var(--accent); font-family: var(--font-display); }
   .portions-track{ width:220px; height:6px; border-radius:3px; background: var(--surface-muted); overflow:hidden; margin-top:6px; }
@@ -162,10 +167,10 @@
   .recipe-detail ol{ margin:0; padding-left:18px; font-size:13px; line-height:1.6; color: var(--text-secondary); }
   .recipe-foot{ display:flex; align-items:center; justify-content:space-between; gap:10px; border-top:1px dashed var(--border); padding-top:12px; margin-top:4px; }
   .freezer-note{ display:flex; align-items:center; gap:6px; font-size:11.5px; color: var(--text-tertiary); }
-  .batch-ctl{ display:flex; align-items:center; gap:10px; }
-  .batch-ctl button.minus{ width:26px; height:26px; border-radius:999px; border:1.5px solid var(--border); background: var(--bg-elevated); color: var(--text); font-size:14px; font-weight:600; }
-  .batch-ctl button.plus{ width:26px; height:26px; border-radius:999px; border:none; background: var(--accent); color: var(--accent-contrast); font-size:14px; font-weight:700; }
-  .batch-count{ font-family: var(--font-display); font-weight:600; font-size:14px; min-width:14px; text-align:center; }
+  .batch-ctl{ display:flex; align-items:center; gap:10px; flex:none; }
+  .batch-ctl button.minus{ width:34px; height:34px; border-radius:999px; border:1.5px solid var(--border); background: var(--bg-elevated); color: var(--text); font-size:17px; font-weight:600; }
+  .batch-ctl button.plus{ width:34px; height:34px; border-radius:999px; border:none; background: var(--accent); color: var(--accent-contrast); font-size:17px; font-weight:700; }
+  .batch-count{ font-family: var(--font-display); font-weight:600; font-size:15px; min-width:16px; text-align:center; }
 
   .empty-state{ text-align:center; padding:60px 20px; background: var(--bg-elevated); border:1px solid var(--border); border-radius:20px; }
   .empty-state h3{ font-family: var(--font-display); font-weight:600; font-size:20px; margin:0 0 8px; }
@@ -181,7 +186,6 @@
   .shopping-item .amt{ color: var(--accent); font-weight:600; white-space:nowrap; }
   .shopping-recipe-item{ display:flex; align-items:center; gap:10px; font-size:13.5px; padding:7px 0; border-bottom:1px dotted var(--border); }
   .shopping-recipe-item .dot{ width:8px; height:8px; border-radius:999px; flex:none; }
-  .shopping-recipe-item .batch-pill{ font-weight:600; padding:2px 8px; border-radius:999px; white-space:nowrap; font-size:12px; }
   .shopping-actions{ display:flex; flex-wrap:wrap; gap:10px; }
   .btn-accent{ background: var(--accent); color: var(--accent-contrast); border:none; padding:11px 18px; border-radius:999px; font-weight:600; font-size:13.5px; }
   .btn-outline{ background:none; border:1px solid var(--border); color: var(--text); padding:11px 18px; border-radius:999px; font-weight:500; font-size:13.5px; }
@@ -192,7 +196,6 @@
   .cooklist-item-head{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; flex-wrap:wrap; border-bottom:1px dashed var(--border); padding-bottom:12px; margin-bottom:14px; }
   .cooklist-item-head .cat{ font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px; }
   .cooklist-item-head h3{ font-family: var(--font-display); font-weight:600; font-size:18px; margin:0; }
-  .cooklist-batches{ font-size:12px; font-weight:600; padding:5px 12px; border-radius:999px; white-space:nowrap; }
   .cooklist-cols{ display:grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap:18px; }
   .cooklist-cols h5{ font-size:11px; font-weight:600; color: var(--text-secondary); text-transform:uppercase; letter-spacing:.04em; margin:0 0 8px; }
   .cooklist-cols ul{ margin:0; padding-left:18px; font-size:13.5px; line-height:1.6; }
@@ -409,8 +412,14 @@ function exportReminders(){
   if (isSafari()) {
     // Safari (iOS & macOS) kann Blob-Downloads von .ics oft nicht öffnen –
     // stattdessen direkt zur data-URI navigieren, damit Safari den
-    // text/calendar-Inhalt selbst erkennt und den Import anbietet.
-    window.location.href = "data:text/calendar;charset=utf-8," + encodeURIComponent(ics);
+    // text/calendar-Inhalt selbst erkennt und den Import anbietet. Als
+    // Homescreen-App (standalone) gibt es keinen Safari-Tab, an den
+    // location.href übergeben könnte – ein echter Anchor-Klick mit
+    // target="_blank" zwingt iOS, dafür (falls möglich) Safari zu öffnen.
+    const dataUri = "data:text/calendar;charset=utf-8," + encodeURIComponent(ics);
+    const a = document.createElement("a");
+    a.href = dataUri; a.target = "_blank"; a.rel = "noopener";
+    document.body.appendChild(a); a.click(); a.remove();
     return;
   }
   try {
@@ -434,7 +443,9 @@ function copyFallback(text){
 }
 function copyList(){
   const ing = buildAggregate();
-  const text = ing.map(it => "• " + fmtAmount(it.total) + " " + it.unit + " " + it.name).join("\n");
+  // Kein Aufzählungszeichen: iOS erkennt reine Zeilen ohne führende Symbole
+  // beim Einfügen in eine leere Erinnerungen-Liste als mehrere Einträge.
+  const text = ing.map(it => fmtAmount(it.total) + " " + it.unit + " " + it.name).join("\n");
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(() => showToast("Liste kopiert.")).catch(() => copyFallback(text));
   } else {
@@ -617,10 +628,12 @@ function renderResultsView(){
       <div>
         <h2 class="view-title">Deine Vorschläge</h2>
         <div class="combo-text">${comboText}</div>
-        <div class="portions-line"><b>${totalPortions}</b> von ${portionsNeeded} Portionen geplant</div>
-        <div class="portions-track"><div class="portions-fill" style="width:${portionsPct}%"></div></div>
       </div>
       <button type="button" class="btn-ghost" data-action="shuffle">${SHUFFLE_SVG}Andere Vorschläge</button>
+    </div>
+    <div class="portions-sticky">
+      <div class="portions-line"><b>${totalPortions}</b> von ${portionsNeeded} Portionen geplant</div>
+      <div class="portions-track"><div class="portions-fill" style="width:${portionsPct}%"></div></div>
     </div>
     ${hasResults ? `<div class="recipe-grid">${cards}</div>` : `
       <div class="empty-state">
@@ -646,7 +659,11 @@ function renderShoppingView(){
     return `<div class="shopping-recipe-item">
       <span class="dot" style="background:${cc}"></span>
       <span style="flex:1">${recipe.title}</span>
-      <span class="batch-pill" style="background:${softAlpha(cc, t)};color:${cc}">${batches}×</span>
+      <div class="batch-ctl">
+        <button type="button" class="minus" data-action="adjust-plan" data-id="${recipe.id}" data-delta="-1" ${batches <= 0 ? "disabled" : ""} style="opacity:${batches <= 0 ? 0.4 : 1}">−</button>
+        <span class="batch-count">${batches}</span>
+        <button type="button" class="plus" data-action="adjust-plan" data-id="${recipe.id}" data-delta="1">+</button>
+      </div>
     </div>`;
   }).join("");
 
@@ -697,7 +714,11 @@ function renderCooklistView(){
             <div class="cat" style="color:${cc}">${cd.label}</div>
             <h3>${recipe.title}</h3>
           </div>
-          <div class="cooklist-batches" style="color:${cc};background:${softAlpha(cc, t)}">${batches}× zubereiten</div>
+          <div class="batch-ctl">
+            <button type="button" class="minus" data-action="adjust-plan" data-id="${recipe.id}" data-delta="-1" ${batches <= 0 ? "disabled" : ""} style="opacity:${batches <= 0 ? 0.4 : 1}">−</button>
+            <span class="batch-count">${batches}×</span>
+            <button type="button" class="plus" data-action="adjust-plan" data-id="${recipe.id}" data-delta="1" style="background:${cc}">+</button>
+          </div>
         </div>
         <div class="cooklist-cols">
           <div><h5>Zutaten</h5><ul>${ingredientsHtml}</ul></div>
