@@ -395,18 +395,10 @@ function showToast(msg){
 
 function icsEscape(text){ return String(text).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,"); }
 
-function toBase64Utf8(str){
-  const bytes = new TextEncoder().encode(str);
-  let binary = "";
-  bytes.forEach(b => { binary += String.fromCharCode(b); });
-  return btoa(binary);
-}
-
-function exportReminders(){
+async function exportReminders(){
   const ing = buildAggregate();
   // DTSTAMP ist bei VTODO nach RFC 5545 ein PFLICHTFELD – ohne das ist die
-  // .ics-Datei ungültig und Safari/Reminders lehnen den Import ab (das war
-  // der eigentliche Grund, warum der Export nicht funktioniert hat).
+  // .ics-Datei ungültig und Safari/Reminders lehnen den Import ab.
   const stamp = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
   const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//TheMealPrepQuest//DE"];
   ing.forEach((it, i) => {
@@ -421,18 +413,34 @@ function exportReminders(){
   });
   lines.push("END:VCALENDAR");
   const ics = lines.join("\r\n");
-  if (isSafari()) {
-    // Safari (iOS & macOS) kann Blob-Downloads von .ics oft nicht öffnen –
-    // stattdessen direkt zur data-URI navigieren, damit Safari den
-    // text/calendar-Inhalt selbst erkennt und den Import anbietet. Base64
-    // statt Prozent-Kodierung, da Umlaute in Zutatennamen (ä/ö/ü/ß) bei der
-    // Prozent-Variante schon mal an Safaris data-URI-Parser gescheitert sind.
-    const dataUri = "data:text/calendar;charset=utf-8;base64," + toBase64Utf8(ics);
-    const a = document.createElement("a");
-    a.href = dataUri; a.target = "_blank"; a.rel = "noopener";
-    document.body.appendChild(a); a.click(); a.remove();
+  const file = new File([ics], "einkaufsliste.ics", { type: "text/calendar" });
+
+  // Bevorzugt: natives Teilen-Menü (Share Sheet). Funktioniert auf iOS/iPadOS
+  // sowohl im Safari-Tab als auch als Homescreen-App und lässt die Nutzerin
+  // selbst "In Erinnerungen öffnen" o.ä. wählen – zuverlässiger als der
+  // data-URI-Trick, den Safari für text/calendar nicht mehr unterstützt.
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file] });
+      showToast("Einkaufsliste geteilt.");
+    } catch (e) {
+      if (e && e.name !== "AbortError") showToast("Teilen nicht möglich.");
+    }
     return;
   }
+
+  if (isSafari()) {
+    // Älteres Safari ohne Datei-Teilen: direkt (im selben Tab, ohne
+    // download-Attribut) zu einer Blob-URL navigieren – das entspricht dem
+    // Aufruf einer echten gehosteten .ics-URL, was Safari an Erinnerungen/
+    // Kalender übergeben kann (im Gegensatz zu data-URIs).
+    const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    window.location.href = url;
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    return;
+  }
+
   try {
     const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -693,6 +701,7 @@ function renderShoppingView(){
         <button type="button" class="btn-outline" data-action="copy-list">Liste kopieren</button>
         <button type="button" class="btn-outline muted" data-action="clear-plan">Wochenplan leeren</button>
       </div>
+      <p style="font-size:11.5px;color:var(--text-tertiary);margin:10px 0 0;max-width:52ch">"Liste kopieren" funktioniert am besten beim Einfügen in eine <b>komplett leere</b> Erinnerungen-Liste – iOS legt dann automatisch einen Eintrag pro Zeile an. In eine Liste mit bereits vorhandenen Einträgen wird alles als ein einzelner Text eingefügt.</p>
     ` : `
       <div class="empty-state">
         <h3>Noch nichts geplant</h3>
