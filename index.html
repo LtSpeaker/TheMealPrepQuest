@@ -395,13 +395,25 @@ function showToast(msg){
 
 function icsEscape(text){ return String(text).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,"); }
 
+function toBase64Utf8(str){
+  const bytes = new TextEncoder().encode(str);
+  let binary = "";
+  bytes.forEach(b => { binary += String.fromCharCode(b); });
+  return btoa(binary);
+}
+
 function exportReminders(){
   const ing = buildAggregate();
+  // DTSTAMP ist bei VTODO nach RFC 5545 ein PFLICHTFELD – ohne das ist die
+  // .ics-Datei ungültig und Safari/Reminders lehnen den Import ab (das war
+  // der eigentliche Grund, warum der Export nicht funktioniert hat).
+  const stamp = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
   const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//TheMealPrepQuest//DE"];
   ing.forEach((it, i) => {
     lines.push(
       "BEGIN:VTODO",
       "UID:mpq-" + Date.now() + "-" + i + "@themealprepquest",
+      "DTSTAMP:" + stamp,
       "SUMMARY:" + icsEscape(fmtAmount(it.total) + " " + it.unit + " " + it.name),
       "STATUS:NEEDS-ACTION",
       "END:VTODO"
@@ -412,11 +424,10 @@ function exportReminders(){
   if (isSafari()) {
     // Safari (iOS & macOS) kann Blob-Downloads von .ics oft nicht öffnen –
     // stattdessen direkt zur data-URI navigieren, damit Safari den
-    // text/calendar-Inhalt selbst erkennt und den Import anbietet. Als
-    // Homescreen-App (standalone) gibt es keinen Safari-Tab, an den
-    // location.href übergeben könnte – ein echter Anchor-Klick mit
-    // target="_blank" zwingt iOS, dafür (falls möglich) Safari zu öffnen.
-    const dataUri = "data:text/calendar;charset=utf-8," + encodeURIComponent(ics);
+    // text/calendar-Inhalt selbst erkennt und den Import anbietet. Base64
+    // statt Prozent-Kodierung, da Umlaute in Zutatennamen (ä/ö/ü/ß) bei der
+    // Prozent-Variante schon mal an Safaris data-URI-Parser gescheitert sind.
+    const dataUri = "data:text/calendar;charset=utf-8;base64," + toBase64Utf8(ics);
     const a = document.createElement("a");
     a.href = dataUri; a.target = "_blank"; a.rel = "noopener";
     document.body.appendChild(a); a.click(); a.remove();
@@ -443,9 +454,10 @@ function copyFallback(text){
 }
 function copyList(){
   const ing = buildAggregate();
-  // Kein Aufzählungszeichen: iOS erkennt reine Zeilen ohne führende Symbole
-  // beim Einfügen in eine leere Erinnerungen-Liste als mehrere Einträge.
-  const text = ing.map(it => fmtAmount(it.total) + " " + it.unit + " " + it.name).join("\n");
+  // Kein Aufzählungszeichen, CRLF statt LF: iOS' Erkennung für "mehrere
+  // Einträge aus eingefügtem Text anlegen" reagiert auf reine Zeilen mit
+  // \r\n zuverlässiger als auf \n allein.
+  const text = ing.map(it => fmtAmount(it.total) + " " + it.unit + " " + it.name).join("\r\n");
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(() => showToast("Liste kopiert.")).catch(() => copyFallback(text));
   } else {
