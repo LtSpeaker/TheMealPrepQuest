@@ -182,8 +182,12 @@
   .shopping-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(300px,1fr)); gap:20px; margin-bottom:24px; }
   .shopping-panel{ background: var(--bg-elevated); border:1px solid var(--border); border-radius:18px; padding:18px; }
   .shopping-panel h5{ font-size:11px; font-weight:600; color: var(--text-secondary); text-transform:uppercase; letter-spacing:.04em; margin:0 0 10px; }
-  .shopping-item{ display:flex; justify-content:space-between; gap:10px; font-size:13.5px; padding:7px 0; border-bottom:1px dotted var(--border); }
+  .shopping-item{ display:flex; align-items:flex-start; gap:9px; font-size:13.5px; padding:7px 0; border-bottom:1px dotted var(--border); cursor:pointer; }
+  .shopping-item input{ margin-top:3px; accent-color: var(--accent); flex-shrink:0; }
+  .shopping-item .name{ flex:1; }
   .shopping-item .amt{ color: var(--accent); font-weight:600; white-space:nowrap; }
+  .shopping-item.checked .name{ text-decoration:line-through; color: var(--text-tertiary); }
+  .shopping-item.checked .amt{ text-decoration:line-through; color: var(--text-tertiary); }
   .shopping-recipe-item{ display:flex; align-items:center; gap:10px; font-size:13.5px; padding:7px 0; border-bottom:1px dotted var(--border); }
   .shopping-recipe-item .dot{ width:8px; height:8px; border-radius:999px; flex:none; }
   .shopping-actions{ display:flex; flex-wrap:wrap; gap:10px; }
@@ -288,7 +292,7 @@ function filterColor(filterId, theme){ const d = FILTER_MAP[filterId]; return th
 const state = {
   theme: "light", view: "form",
   selCats: [], selTime: null, days: 5, persons: 2, selFilters: [],
-  resultIds: [], expanded: {}, plan: {}, checkedSteps: {},
+  resultIds: [], expanded: {}, plan: {}, checkedSteps: {}, checkedIngredients: {},
   questNo: 100 + Math.floor(Math.random() * 800),
 };
 
@@ -300,6 +304,7 @@ function loadPersisted(){
       if (saved.theme === "light" || saved.theme === "dark") state.theme = saved.theme;
       if (saved.plan && typeof saved.plan === "object") state.plan = saved.plan;
       if (saved.checkedSteps && typeof saved.checkedSteps === "object") state.checkedSteps = saved.checkedSteps;
+      if (saved.checkedIngredients && typeof saved.checkedIngredients === "object") state.checkedIngredients = saved.checkedIngredients;
       if (typeof saved.persons === "number" && saved.persons >= 1 && saved.persons <= 8) state.persons = saved.persons;
     } else {
       // Einmalige Migration aus der Speicherung von vor dem Redesign.
@@ -325,7 +330,8 @@ function loadPersisted(){
 function persist(){
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify({
-      plan: state.plan, checkedSteps: state.checkedSteps, theme: state.theme, persons: state.persons,
+      plan: state.plan, checkedSteps: state.checkedSteps, checkedIngredients: state.checkedIngredients,
+      theme: state.theme, persons: state.persons,
     }));
   } catch (e) { /* z.B. privater Browser-Modus ohne localStorage-Zugriff */ }
 }
@@ -379,9 +385,10 @@ function adjustPlan(id, delta){
   persist(); render();
 }
 function toggleStep(key){ state.checkedSteps[key] = !state.checkedSteps[key]; persist(); render(); }
+function toggleIngredient(key){ state.checkedIngredients[key] = !state.checkedIngredients[key]; persist(); render(); }
 function clearPlan(){
   if (!window.confirm("Wochenplan wirklich leeren?")) return;
-  state.plan = {}; state.checkedSteps = {};
+  state.plan = {}; state.checkedSteps = {}; state.checkedIngredients = {};
   persist(); render();
 }
 
@@ -670,9 +677,16 @@ function renderShoppingView(){
   const hasPlan = plannedList.length > 0;
   const ing = buildAggregate();
 
-  const ingredientsHtml = ing.map(it => `
-    <div class="shopping-item"><span>${it.name}</span><span class="amt">${fmtAmount(it.total)} ${it.unit}</span></div>
-  `).join("");
+  const ingredientsHtml = ing.map(it => {
+    const key = it.name + "|" + it.unit;
+    const checked = !!state.checkedIngredients[key];
+    return `
+      <label class="shopping-item${checked ? " checked" : ""}">
+        <input type="checkbox" data-action="toggle-ingredient" data-key="${key}" ${checked ? "checked" : ""}>
+        <span class="name">${it.name}</span>
+        <span class="amt">${fmtAmount(it.total)} ${it.unit}</span>
+      </label>`;
+  }).join("");
 
   const recipesHtml = plannedList.map(({ recipe, batches }) => {
     const cc = catColor(recipe.category, t);
@@ -804,9 +818,10 @@ document.body.addEventListener("click", (e) => {
   }
 });
 document.body.addEventListener("change", (e) => {
-  const el = e.target.closest('[data-action="toggle-step"]');
+  const el = e.target.closest("[data-action]");
   if (!el) return;
-  toggleStep(el.dataset.key);
+  if (el.dataset.action === "toggle-step") toggleStep(el.dataset.key);
+  else if (el.dataset.action === "toggle-ingredient") toggleIngredient(el.dataset.key);
 });
 
 loadPersisted();
