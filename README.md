@@ -6,7 +6,7 @@ Single-Page-Web-App zur Rezept-Inspiration fürs Meal Prep. Reines HTML/CSS/JS, 
 
 ## Was die App macht
 
-1. **Fragebogen** – Kategorie(n) (Fleisch/Fisch/Vegetarisch/Vegan, Mehrfachauswahl), Zeit pro Kochsession, Anzahl Tage, Anzahl Personen, optionale Filter (Low Carb, High Protein, Kalorienarm, Schnell).
+1. **Fragebogen** – Kategorie(n) (Fleisch/Fisch/Vegetarisch, Mehrfachauswahl), Zeit pro Kochsession, Anzahl Tage, Anzahl Personen, optionale Filter (Low Carb, High Protein, Kalorienarm, Schnell).
 2. **Ergebnisse** – zufällige Auswahl aus der Rezept-Datenbank (36 Rezepte, 9 pro Kategorie), passend zur gewählten Kombination. Zutaten werden automatisch auf die Personenzahl skaliert, Zubereitung ist pro Karte ausklappbar. Über "Andere Vorschläge" lässt sich neu würfeln. Portionen lassen sich pro Rezept zum Wochenplan hinzufügen.
 3. **Einkaufsliste** – aggregiert die Zutaten über alle geplanten Rezepte/Portionen. Export als `.ics`-Datei (für Apple Erinnerungen/Kalender-Import) oder als Text zum Kopieren.
 4. **Kochliste** – zeigt alle geplanten Gerichte mit vollständigen Zutaten und Zubereitungsschritten als abhakbare Checkliste. Bleibt gespeichert, bis der Wochenplan geleert wird – gedacht für die Zeit zwischen Einkaufen und tatsächlichem Kochen.
