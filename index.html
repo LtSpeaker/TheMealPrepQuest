@@ -157,7 +157,13 @@
   .recipe-card-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
   .recipe-cat{ font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
   .recipe-time{ font-size:11.5px; color: var(--text-tertiary); }
-  .recipe-title{ font-family: var(--font-display); font-weight:600; font-size:17px; line-height:1.25; margin:0 0 10px; }
+  .recipe-title-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:10px; }
+  .recipe-title{ font-family: var(--font-display); font-weight:600; font-size:17px; line-height:1.25; margin:0; }
+  .recipe-rate{ display:flex; gap:6px; flex:none; }
+  .rate-btn{ width:30px; height:30px; border-radius:999px; border:1px solid var(--border); background: var(--bg-elevated); color: var(--text-tertiary); display:flex; align-items:center; justify-content:center; flex:none; }
+  .rate-btn.like.active{ border-color:#E0507A; background:rgba(224,80,122,.12); color:#E0507A; }
+  .rate-btn.like.active svg path{ fill:currentColor; }
+  .rate-btn.dislike.active{ border-color: var(--text-secondary); background: var(--surface-muted); color: var(--text-secondary); }
   .recipe-tags{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
   .tag-badge{ font-size:10.5px; font-weight:600; padding:4px 9px; border-radius:6px; }
   .expand-btn{ background:none; border:none; color: var(--accent); font-size:12.5px; font-weight:600; padding:0; text-align:left; margin-bottom:10px; }
@@ -241,12 +247,17 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 3v6M9 3v6M6 9c0 2-1 3-1 6v6h4v-6c0-3-1-4-1-6M15 3c-2 0-3 2-3 5s1 4 3 4v9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
       Kochliste <b id="nav-cooklist-count">0</b>
     </button>
+    <button type="button" class="nav-pill" id="nav-favorites" data-action="go-favorites" style="display:none">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 21s-7.5-4.6-10-9.3C.5 8.2 2.3 4 6.2 4c2 0 3.6 1.1 4.4 2.7C11.4 5.1 13 4 15 4c3.9 0 5.7 4.2 4.2 7.7C19.5 16.4 12 21 12 21z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+      Favoriten <b id="nav-favorites-count">0</b>
+    </button>
   </div>
 
   <section id="view-form" class="view active"></section>
   <section id="view-results" class="view"></section>
   <section id="view-shopping" class="view"></section>
   <section id="view-cooklist" class="view"></section>
+  <section id="view-favorites" class="view"></section>
 
 </div>
 
@@ -280,6 +291,8 @@ const SUN_SVG = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><ci
 const MOON_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>';
 const SHUFFLE_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M4 4l5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const SNOWFLAKE_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+const HEART_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 21s-7.5-4.6-10-9.3C.5 8.2 2.3 4 6.2 4c2 0 3.6 1.1 4.4 2.7C11.4 5.1 13 4 15 4c3.9 0 5.7 4.2 4.2 7.7C19.5 16.4 12 21 12 21z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+const CROSS_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 
 function timeMax(bucket){ return bucket === "30" ? 30 : bucket === "60" ? 60 : Infinity; }
 function fmtAmount(n){ const r = Math.round(n * 10) / 10; return Number.isInteger(r) ? String(r) : String(r).replace(".", ","); }
@@ -293,6 +306,7 @@ const state = {
   theme: "light", view: "form",
   selCats: [], selTime: null, days: 5, persons: 2, selFilters: [],
   resultIds: [], expanded: {}, plan: {}, checkedSteps: {}, checkedIngredients: {},
+  liked: {}, disliked: {},
   questNo: 100 + Math.floor(Math.random() * 800),
 };
 
@@ -305,6 +319,8 @@ function loadPersisted(){
       if (saved.plan && typeof saved.plan === "object") state.plan = saved.plan;
       if (saved.checkedSteps && typeof saved.checkedSteps === "object") state.checkedSteps = saved.checkedSteps;
       if (saved.checkedIngredients && typeof saved.checkedIngredients === "object") state.checkedIngredients = saved.checkedIngredients;
+      if (saved.liked && typeof saved.liked === "object") state.liked = saved.liked;
+      if (saved.disliked && typeof saved.disliked === "object") state.disliked = saved.disliked;
       if (typeof saved.persons === "number" && saved.persons >= 1 && saved.persons <= 8) state.persons = saved.persons;
     } else {
       // Einmalige Migration aus der Speicherung von vor dem Redesign.
@@ -325,12 +341,20 @@ function loadPersisted(){
     if (RECIPES.some(r => r.id === id) && state.plan[id] > 0) cleaned[id] = state.plan[id];
   });
   state.plan = cleaned;
+  const cleanIds = (obj) => {
+    const out = {};
+    Object.keys(obj).forEach(id => { if (RECIPES.some(r => r.id === id)) out[id] = true; });
+    return out;
+  };
+  state.liked = cleanIds(state.liked);
+  state.disliked = cleanIds(state.disliked);
 }
 
 function persist(){
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify({
       plan: state.plan, checkedSteps: state.checkedSteps, checkedIngredients: state.checkedIngredients,
+      liked: state.liked, disliked: state.disliked,
       theme: state.theme, persons: state.persons,
     }));
   } catch (e) { /* z.B. privater Browser-Modus ohne localStorage-Zugriff */ }
@@ -360,7 +384,8 @@ function getFilteredPool(){
   return RECIPES.filter(r =>
     state.selCats.includes(r.category) &&
     r.time <= timeMax(state.selTime) &&
-    state.selFilters.every(f => r.tags.includes(f))
+    state.selFilters.every(f => r.tags.includes(f)) &&
+    !state.disliked[r.id]
   );
 }
 
@@ -377,6 +402,35 @@ function goResults(){ state.resultIds = sample(getFilteredPool(), MAX_RESULTS).m
 function shuffle(){ state.resultIds = sample(getFilteredPool(), MAX_RESULTS).map(r => r.id); render(); }
 function goShopping(){ state.view = "shopping"; render(); }
 function goCooklist(){ state.view = "cooklist"; render(); }
+function goFavorites(){ state.view = "favorites"; render(); }
+
+function toggleLike(id){
+  if (state.liked[id]) { delete state.liked[id]; }
+  else { state.liked[id] = true; delete state.disliked[id]; }
+  persist(); render();
+}
+function toggleDislike(id){
+  if (state.disliked[id]) {
+    delete state.disliked[id];
+  } else {
+    state.disliked[id] = true;
+    delete state.liked[id];
+    swapOutDisliked(id);
+  }
+  persist(); render();
+}
+// Ersetzt ein gerade disliked-tes Rezept in den aktuellen Vorschlägen durch
+// ein anderes, noch nicht gezeigtes und nicht disliked-tes aus dem Pool.
+function swapOutDisliked(id){
+  const idx = state.resultIds.indexOf(id);
+  if (idx === -1) return;
+  const candidates = getFilteredPool().filter(r => !state.resultIds.includes(r.id));
+  if (candidates.length > 0) {
+    state.resultIds[idx] = candidates[Math.floor(Math.random() * candidates.length)].id;
+  } else {
+    state.resultIds.splice(idx, 1);
+  }
+}
 function goBackFromSub(){ state.view = state.resultIds.length ? "results" : "form"; render(); }
 function adjustPlan(id, delta){
   const cur = state.plan[id] || 0;
@@ -488,10 +542,13 @@ const navShopping = document.getElementById("nav-shopping");
 const navShoppingCount = document.getElementById("nav-shopping-count");
 const navCooklist = document.getElementById("nav-cooklist");
 const navCooklistCount = document.getElementById("nav-cooklist-count");
+const navFavorites = document.getElementById("nav-favorites");
+const navFavoritesCount = document.getElementById("nav-favorites-count");
 const viewForm = document.getElementById("view-form");
 const viewResults = document.getElementById("view-results");
 const viewShopping = document.getElementById("view-shopping");
 const viewCooklist = document.getElementById("view-cooklist");
+const viewFavorites = document.getElementById("view-favorites");
 const toastEl = document.getElementById("toast");
 
 function renderHeader(){
@@ -502,6 +559,10 @@ function renderHeader(){
   navShoppingCount.textContent = totalPortions;
   navCooklistCount.textContent = plannedList.length;
   navCooklist.style.display = plannedList.length > 0 ? "flex" : "none";
+  const likedCount = Object.keys(state.liked).length;
+  const dislikedCount = Object.keys(state.disliked).length;
+  navFavoritesCount.textContent = likedCount;
+  navFavorites.style.display = (likedCount > 0 || dislikedCount > 0) ? "flex" : "none";
 }
 
 function renderForm(){
@@ -598,42 +659,42 @@ function renderForm(){
   `;
 }
 
-function renderResultsView(){
+function buildRecipeCardHtml(id){
   const t = state.theme;
-  const plannedList = getPlannedList();
-  const totalPortions = plannedList.reduce((a, { batches }) => a + batches * state.persons, 0);
-  const portionsNeeded = state.days * state.persons;
-  const portionsPct = portionsNeeded ? Math.min(100, Math.round((totalPortions / portionsNeeded) * 100)) : 0;
-  const catLabels = CAT_DEFS.filter(d => state.selCats.includes(d.id)).map(d => d.label);
-  const comboText = catLabels.join(", ") + " · " + state.days + " Tage · " + state.persons + " Personen";
-
-  const cards = state.resultIds.map(id => {
-    const r = RECIPES.find(x => x.id === id);
-    if (!r) return "";
-    const cd = CAT_MAP[r.category];
-    const cc = catColor(r.category, t);
-    const expanded = !!state.expanded[id];
-    const batches = state.plan[id] || 0;
-    const tagsHtml = r.tags.map(tag => {
-      const fd = FILTER_MAP[tag]; const fc = filterColor(tag, t);
-      return `<span class="tag-badge" style="background:${softAlpha(fc, t)};color:${fc}">${fd.label}</span>`;
-    }).join("");
-    const detailHtml = expanded ? `
-      <div class="recipe-detail">
-        <h5>Zutaten · ${state.persons} Personen</h5>
-        <ul>${r.ingredients.map(ing => `<li>${fmtAmount(ing.amount * state.persons)} ${ing.unit} ${ing.name}</li>`).join("")}</ul>
-        <h5>Zubereitung</h5>
-        <ol>${r.steps.map(s => `<li>${s}</li>`).join("")}</ol>
-      </div>` : "";
-    return `
-      <div class="recipe-card">
-        <div class="recipe-card-top">
-          <div class="recipe-cat" style="color:${cc}">${cd.label}</div>
-          <div class="recipe-time">${r.time} Min</div>
-        </div>
+  const r = RECIPES.find(x => x.id === id);
+  if (!r) return "";
+  const cd = CAT_MAP[r.category];
+  const cc = catColor(r.category, t);
+  const expanded = !!state.expanded[id];
+  const batches = state.plan[id] || 0;
+  const liked = !!state.liked[id];
+  const disliked = !!state.disliked[id];
+  const tagsHtml = r.tags.map(tag => {
+    const fd = FILTER_MAP[tag]; const fc = filterColor(tag, t);
+    return `<span class="tag-badge" style="background:${softAlpha(fc, t)};color:${fc}">${fd.label}</span>`;
+  }).join("");
+  const detailHtml = expanded ? `
+    <div class="recipe-detail">
+      <h5>Zutaten · ${state.persons} Personen</h5>
+      <ul>${r.ingredients.map(ing => `<li>${fmtAmount(ing.amount * state.persons)} ${ing.unit} ${ing.name}</li>`).join("")}</ul>
+      <h5>Zubereitung</h5>
+      <ol>${r.steps.map(s => `<li>${s}</li>`).join("")}</ol>
+    </div>` : "";
+  return `
+    <div class="recipe-card">
+      <div class="recipe-card-top">
+        <div class="recipe-cat" style="color:${cc}">${cd.label}</div>
+        <div class="recipe-time">${r.time} Min</div>
+      </div>
+      <div class="recipe-title-row">
         <div class="recipe-title">${r.title}</div>
-        <div class="recipe-tags">${tagsHtml}</div>
-        <button type="button" class="expand-btn" data-action="toggle-expand" data-id="${id}">${expanded ? "Zutaten & Zubereitung ausblenden" : "Zutaten & Zubereitung anzeigen"}</button>
+        <div class="recipe-rate">
+          <button type="button" class="rate-btn like${liked ? " active" : ""}" data-action="toggle-like" data-id="${id}" aria-label="Gefällt mir" title="Gefällt mir">${HEART_SVG}</button>
+          <button type="button" class="rate-btn dislike${disliked ? " active" : ""}" data-action="toggle-dislike" data-id="${id}" aria-label="Nicht für mich" title="Nicht für mich">${CROSS_SVG}</button>
+        </div>
+      </div>
+      <div class="recipe-tags">${tagsHtml}</div>
+      <button type="button" class="expand-btn" data-action="toggle-expand" data-id="${id}">${expanded ? "Zutaten & Zubereitung ausblenden" : "Zutaten & Zubereitung anzeigen"}</button>
         ${detailHtml}
         <div style="flex:1"></div>
         <div class="recipe-foot">
@@ -645,8 +706,17 @@ function renderResultsView(){
           </div>
         </div>
       </div>`;
-  }).join("");
+}
 
+function renderResultsView(){
+  const plannedList = getPlannedList();
+  const totalPortions = plannedList.reduce((a, { batches }) => a + batches * state.persons, 0);
+  const portionsNeeded = state.days * state.persons;
+  const portionsPct = portionsNeeded ? Math.min(100, Math.round((totalPortions / portionsNeeded) * 100)) : 0;
+  const catLabels = CAT_DEFS.filter(d => state.selCats.includes(d.id)).map(d => d.label);
+  const comboText = catLabels.join(", ") + " · " + state.days + " Tage · " + state.persons + " Personen";
+
+  const cards = state.resultIds.map(id => buildRecipeCardHtml(id)).join("");
   const hasResults = state.resultIds.length > 0;
 
   viewResults.innerHTML = `
@@ -667,6 +737,39 @@ function renderResultsView(){
         <h3>Keine Treffer</h3>
         <p>Mit dieser Kombination ist die Rezeptbox gerade leer. Versuch's mit weniger Filtern.</p>
       </div>`}
+  `;
+}
+
+function renderFavoritesView(){
+  const t = state.theme;
+  const likedIds = Object.keys(state.liked).filter(id => RECIPES.some(r => r.id === id));
+  const dislikedIds = Object.keys(state.disliked).filter(id => RECIPES.some(r => r.id === id));
+
+  const likedHtml = likedIds.length
+    ? `<div class="recipe-grid">${likedIds.map(id => buildRecipeCardHtml(id)).join("")}</div>`
+    : `<div class="empty-state"><h3>Noch keine Favoriten</h3><p>Tippe bei einem Rezeptvorschlag auf das Herz, um es hier zu sammeln.</p></div>`;
+
+  const dislikedHtml = dislikedIds.length
+    ? dislikedIds.map(id => {
+        const r = RECIPES.find(x => x.id === id);
+        if (!r) return "";
+        const cc = catColor(r.category, t);
+        return `<div class="shopping-recipe-item">
+          <span class="dot" style="background:${cc}"></span>
+          <span style="flex:1">${r.title}</span>
+          <button type="button" class="btn-outline" style="padding:6px 12px;font-size:12px" data-action="toggle-dislike" data-id="${id}">Zurücknehmen</button>
+        </div>`;
+      }).join("")
+    : `<p style="font-size:13px;color:var(--text-secondary)">Keine ausgeblendeten Rezepte.</p>`;
+
+  viewFavorites.innerHTML = `
+    <button type="button" class="back-link" data-action="go-back-sub">← Zurück</button>
+    <h2 class="view-title">Favoriten</h2>
+    <div class="sub-subtitle">Gelikte Rezepte landen hier. Ausgeblendete (disliked) Rezepte tauchen nicht mehr in den Vorschlägen auf – hier kannst du sie wieder freigeben.</div>
+    <h3 style="font-family:var(--font-display);font-weight:600;font-size:16px;margin:24px 0 12px">❤ Gelikt</h3>
+    ${likedHtml}
+    <h3 style="font-family:var(--font-display);font-weight:600;font-size:16px;margin:28px 0 12px">Ausgeblendet</h3>
+    <div class="shopping-panel">${dislikedHtml}</div>
   `;
 }
 
@@ -784,10 +887,12 @@ function render(){
   viewResults.classList.toggle("active", state.view === "results");
   viewShopping.classList.toggle("active", state.view === "shopping");
   viewCooklist.classList.toggle("active", state.view === "cooklist");
+  viewFavorites.classList.toggle("active", state.view === "favorites");
   if (state.view === "form") renderForm();
   else if (state.view === "results") renderResultsView();
   else if (state.view === "shopping") renderShoppingView();
   else if (state.view === "cooklist") renderCooklistView();
+  else if (state.view === "favorites") renderFavoritesView();
 }
 
 // ---------------- EVENT DELEGATION ----------------
@@ -810,11 +915,14 @@ document.body.addEventListener("click", (e) => {
     case "shuffle": shuffle(); break;
     case "go-shopping": goShopping(); break;
     case "go-cooklist": goCooklist(); break;
+    case "go-favorites": goFavorites(); break;
     case "go-back-sub": goBackFromSub(); break;
     case "adjust-plan": adjustPlan(id, delta); break;
     case "export-reminders": exportReminders(); break;
     case "copy-list": copyList(); break;
     case "clear-plan": clearPlan(); break;
+    case "toggle-like": toggleLike(id); break;
+    case "toggle-dislike": toggleDislike(id); break;
   }
 });
 document.body.addEventListener("change", (e) => {
